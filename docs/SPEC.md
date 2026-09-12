@@ -15,9 +15,14 @@ A small content-feed app in the spirit of LINE TODAY / VOOM: a scrollable, heter
 **Out of scope** (not attempted, or deferred — see `README.md` for the up-to-date list once implementation starts):
 - Search / filtering
 - Animations / transitions beyond what a standard Compose scaffold provides for free
-- Multi-module project structure
-- CI (build + test on push)
 - Dark theme
+
+## Architecture
+
+- **Modules**: `:app` (composition root — DI wiring, the Nav3 graph, `MainActivity`), `:core` (network, Room, DataStore, shared Koin modules), `:feed` (repositories/data sources, MVI state/view models, the feed/detail/saved Compose screens).
+- **Stack**: Kotlin + Jetpack Compose, MVI; Navigation 3; Koin for DI; OkHttp + Moshi (KSP codegen) + Retrofit, wrapped in sandwich for API responses; Room + DataStore Preferences for persistence and freshness timestamps; Coil for images; Custom Tabs for external links.
+- **CI**: GitHub Actions runs `ktlintCheck` + `testDebugUnitTest` on push to any branch and on pull requests.
+- Rationale for each of these choices is recorded in `DECISIONS.md` as it's decided.
 
 ## Data sources
 
