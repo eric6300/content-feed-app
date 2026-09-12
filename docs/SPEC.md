@@ -3,6 +3,7 @@
 A small content-feed app in the spirit of LINE TODAY / VOOM: a scrollable, heterogeneous feed (articles, weather, service cards) the user can open, save for later, and read offline.
 
 - [Use Cases](USE_CASES.md)
+- [Coding Style](CODING_STYLE.md)
 
 ## Scope
 
@@ -22,7 +23,7 @@ A small content-feed app in the spirit of LINE TODAY / VOOM: a scrollable, heter
 - **Modules**: `:app` (composition root — DI wiring, the Nav3 graph, `MainActivity`), `:core` (network, Room, DataStore, shared Koin modules), `:feed` (repositories/data sources, MVI state/view models, the feed/detail/saved Compose screens).
 - **Stack**: Kotlin + Jetpack Compose, MVI; Navigation 3; Koin for DI; OkHttp + Moshi (KSP codegen) + Retrofit, wrapped in sandwich for API responses; Room + DataStore Preferences for persistence and freshness timestamps; Coil for images; Custom Tabs for external links.
 - **CI**: GitHub Actions runs `ktlintCheck` + `testDebugUnitTest` on push to any branch and on pull requests.
-- Rationale for each of these choices is recorded in `DECISIONS.md` as it's decided.
+- Naming/structure conventions and lint rules are in [Coding Style](CODING_STYLE.md); rationale for each architectural choice is recorded in `DECISIONS.md` as it's decided.
 
 ## Data sources
 
