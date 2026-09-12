@@ -36,6 +36,12 @@ Scenario: The service card interval counts articles cumulatively across pages
   When the total number of articles shown so far, across all pages, reaches another multiple of 5
   Then a service card is inserted at that point
   And the count is not reset to zero at the start of each new page
+
+Scenario: A service card's position, once set, does not move
+  Given a service card has already been inserted at a position in the list
+  When new articles are later added anywhere in the list (via pagination at the bottom, or a refresh prepending new articles at the top)
+  Then that service card's position relative to its existing neighbors does not change
+  And the cumulative article count used to decide future service card slots only accounts for articles added after that point — it never recalculates or moves a slot already assigned
 ```
 
 ## Feature: Feed freshness
@@ -67,12 +73,6 @@ Scenario: Cached content is shown immediately on startup, independent of any ref
   Then the feed shows the cached content immediately, without waiting on a network response
   And a freshness check for weather and articles happens independently in the background
   And the feed updates in place if that check determines a refetch is needed
-
-Scenario: Weather and articles show when the app last fetched them
-  Given the user is viewing the feed
-  When the user looks at the weather section or an article card
-  Then each shows an indicator of when the app itself last fetched that data — distinct from an article's own `published_at`, which is a separate field shown elsewhere (see Per-source data handling)
-  And service cards show no such indicator, since they aren't fetched from a live source
 
 Scenario: New articles are added without disrupting the user's reading position
   Given the user has scrolled partway through the list
