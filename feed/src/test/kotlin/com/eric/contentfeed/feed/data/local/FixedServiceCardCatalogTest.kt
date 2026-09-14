@@ -16,13 +16,20 @@ class FixedServiceCardCatalogTest {
 
     @Test
     fun slotsCycleThroughTheConfiguredCards() {
-        assertEquals(1, catalog.cardForSlot(0).id)
-        assertEquals(2, catalog.cardForSlot(1).id)
-        assertEquals(1, catalog.cardForSlot(2).id)
+        assertEquals(1, catalog.cardForSlot(0)!!.id)
+        assertEquals(2, catalog.cardForSlot(1)!!.id)
+        assertEquals(1, catalog.cardForSlot(2)!!.id)
     }
 
     @Test
     fun negativeSlotIsRejected() {
         assertThrows(IllegalArgumentException::class.java) { catalog.cardForSlot(-1) }
+    }
+
+    @Test
+    fun emptyCatalogDegradesToNullInsteadOfCrashing() {
+        val emptyCatalog = FixedServiceCardCatalog(emptyList())
+
+        assertEquals(null, emptyCatalog.cardForSlot(0))
     }
 }

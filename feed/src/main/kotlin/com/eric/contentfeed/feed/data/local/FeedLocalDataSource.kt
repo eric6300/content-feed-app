@@ -28,11 +28,13 @@ interface FeedLocalDataSource {
 
     suspend fun insertPlacement(placement: FeedPlacement)
 
+    /** Returns false if [articleId] doesn't exist in the local cache yet, in which case
+     * the save had no effect. */
     suspend fun saveArticle(
         articleId: Int,
         savedAtEpochMillis: Long,
         localImagePath: String?,
-    )
+    ): Boolean
 
     /** Feed/detail toggle: immediate, full removal — no undo for this path. */
     suspend fun unsaveArticleImmediately(articleId: Int)
@@ -45,9 +47,13 @@ interface FeedLocalDataSource {
         deadlineEpochMillis: Long,
     ): Boolean
 
-    /** Returns false if there was nothing pending to undo (already finalized, or never
-     * removed). */
-    suspend fun undoUnsave(articleId: Int): Boolean
+    /** Returns false if there was nothing pending to undo as of [nowEpochMillis] —
+     * already finalized, never removed, or its own deadline has already passed even if
+     * [finalizeExpiredPendingUnsaves] hasn't run yet. */
+    suspend fun undoUnsave(
+        articleId: Int,
+        nowEpochMillis: Long,
+    ): Boolean
 
     /** Finalizes every pending removal whose undo window has passed as of
      * [nowEpochMillis], returning the removed articles so callers can delete their

@@ -78,9 +78,7 @@ internal class RoomFeedLocalDataSource(
         articleId: Int,
         savedAtEpochMillis: Long,
         localImagePath: String?,
-    ) {
-        articleDao.saveArticle(articleId, savedAtEpochMillis, localImagePath)
-    }
+    ): Boolean = articleDao.saveArticle(articleId, savedAtEpochMillis, localImagePath) > 0
 
     override suspend fun unsaveArticleImmediately(articleId: Int) {
         articleDao.unsaveImmediate(articleId)
@@ -91,7 +89,10 @@ internal class RoomFeedLocalDataSource(
         deadlineEpochMillis: Long,
     ): Boolean = articleDao.markPendingUnsave(articleId, deadlineEpochMillis) > 0
 
-    override suspend fun undoUnsave(articleId: Int): Boolean = articleDao.undoPendingUnsave(articleId) > 0
+    override suspend fun undoUnsave(
+        articleId: Int,
+        nowEpochMillis: Long,
+    ): Boolean = articleDao.undoPendingUnsave(articleId, nowEpochMillis) > 0
 
     override suspend fun finalizeExpiredPendingUnsaves(nowEpochMillis: Long): List<CachedArticle> =
         articleDao.finalizeExpiredPendingUnsaves(nowEpochMillis).map(::toCachedArticle)

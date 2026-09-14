@@ -43,8 +43,25 @@ class FeedPlacementDaoTest {
             placementDao.insertIfAbsent(placement(anchorArticleId = 10, poolIndex = 1, assignmentSequence = 0))
             placementDao.insertIfAbsent(placement(anchorArticleId = 10, poolIndex = 2, assignmentSequence = 1))
 
-            assertEquals(1, placementDao.findByAnchorArticleId(10)!!.poolIndex)
+            assertEquals(1, placementDao.findByAnchorArticleId(10, SERVICE_CARD)!!.poolIndex)
             assertEquals(1, placementDao.observePlacements().first().size)
+        }
+
+    @Test
+    fun differentContentTypesCanShareTheSameAnchorArticle() =
+        runTest {
+            articleDao.upsertRemoteArticles(listOf(article(id = 10)))
+
+            placementDao.insertIfAbsent(
+                placement(anchorArticleId = 10, contentType = SERVICE_CARD, poolIndex = 0, assignmentSequence = 0),
+            )
+            placementDao.insertIfAbsent(
+                placement(anchorArticleId = 10, contentType = VIDEO_CARD, poolIndex = 0, assignmentSequence = 1),
+            )
+
+            assertEquals(2, placementDao.observePlacements().first().size)
+            assertNotNull(placementDao.findByAnchorArticleId(10, SERVICE_CARD))
+            assertNotNull(placementDao.findByAnchorArticleId(10, VIDEO_CARD))
         }
 
     @Test
@@ -93,7 +110,7 @@ class FeedPlacementDaoTest {
             articleDao.deleteUnsavedOlderThan(cutoffEpochMillis = 1_000)
 
             assertEquals(null, articleDao.observeArticle(10).first())
-            val survivingPlacement = placementDao.findByAnchorArticleId(10)
+            val survivingPlacement = placementDao.findByAnchorArticleId(10, SERVICE_CARD)
             assertNotNull(survivingPlacement)
             assertEquals(100L, survivingPlacement!!.anchorPublishedAtEpochMillis)
             assertEquals(1, survivingPlacement.poolIndex)

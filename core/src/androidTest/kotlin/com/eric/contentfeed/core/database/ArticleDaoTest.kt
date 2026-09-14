@@ -156,7 +156,7 @@ class ArticleDaoTest {
             dao.saveArticle(articleId = 1, savedAtEpochMillis = 20, localImagePath = "saved/image.jpg")
             dao.markPendingUnsave(articleId = 1, deadlineEpochMillis = 100)
 
-            assertEquals(1, dao.undoPendingUnsave(1))
+            assertEquals(1, dao.undoPendingUnsave(1, nowEpochMillis = 50))
 
             assertEquals(listOf(1), dao.observeSavedArticles().first().map { it.id })
         }
@@ -169,7 +169,20 @@ class ArticleDaoTest {
             dao.markPendingUnsave(articleId = 1, deadlineEpochMillis = 100)
             dao.finalizeExpiredPendingUnsaves(nowEpochMillis = 100)
 
-            assertEquals(0, dao.undoPendingUnsave(1))
+            assertEquals(0, dao.undoPendingUnsave(1, nowEpochMillis = 100))
+        }
+
+    @Test
+    fun undoAfterItsOwnDeadlineHasPassedHasNoEffectEvenBeforeFinalizeRuns() =
+        runTest {
+            dao.upsertRemoteArticles(listOf(article(id = 1)))
+            dao.saveArticle(articleId = 1, savedAtEpochMillis = 20, localImagePath = "saved/image.jpg")
+            dao.markPendingUnsave(articleId = 1, deadlineEpochMillis = 100)
+
+            // Deadline has passed, but finalizeExpiredPendingUnsaves hasn't run yet —
+            // undo must still refuse, not race finalize to decide the outcome.
+            assertEquals(0, dao.undoPendingUnsave(1, nowEpochMillis = 150))
+            assertTrue(dao.observeArticle(1).first()!!.pendingUnsaveAtEpochMillis != null)
         }
 
     @Test
@@ -187,6 +200,20 @@ class ArticleDaoTest {
             assertEquals("saved/1.jpg", finalized.single().localImagePath)
             assertTrue(!dao.observeArticle(1).first()!!.isSaved)
             assertTrue(dao.observeArticle(2).first()!!.isSaved)
+        }
+
+    @Test
+    fun saveArticleReturnsZeroWhenTheArticleIsNotInTheLocalCache() =
+        runTest {
+            assertEquals(0, dao.saveArticle(articleId = 999, savedAtEpochMillis = 20, localImagePath = null))
+        }
+
+    @Test
+    fun saveArticleReturnsOneWhenItUpdatesAnExistingRow() =
+        runTest {
+            dao.upsertRemoteArticles(listOf(article(id = 1)))
+
+            assertEquals(1, dao.saveArticle(articleId = 1, savedAtEpochMillis = 20, localImagePath = null))
         }
 
     private fun article(

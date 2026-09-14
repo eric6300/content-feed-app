@@ -18,18 +18,17 @@ internal data class ServiceCardAssetJson(
 )
 
 interface ServiceCardCatalog {
-    fun cardForSlot(slotIndex: Int): ServiceCard
+    /** Null if the catalog has no usable cards at all (e.g. the bundled pool failed to
+     * parse entirely) — callers must handle this rather than treat it as a crash. */
+    fun cardForSlot(slotIndex: Int): ServiceCard?
 }
 
 class FixedServiceCardCatalog(
     private val cards: List<ServiceCard>,
 ) : ServiceCardCatalog {
-    init {
-        require(cards.isNotEmpty()) { "Service card catalog must not be empty" }
-    }
-
-    override fun cardForSlot(slotIndex: Int): ServiceCard {
+    override fun cardForSlot(slotIndex: Int): ServiceCard? {
         require(slotIndex >= 0) { "Service card slot must not be negative" }
+        if (cards.isEmpty()) return null
         return cards[slotIndex % cards.size]
     }
 }
@@ -73,7 +72,7 @@ class BundledServiceCardCatalog(
     private val parser = ServiceCardJsonParser(moshi)
     private val delegate by lazy { FixedServiceCardCatalog(loadCards()) }
 
-    override fun cardForSlot(slotIndex: Int): ServiceCard = delegate.cardForSlot(slotIndex)
+    override fun cardForSlot(slotIndex: Int): ServiceCard? = delegate.cardForSlot(slotIndex)
 
     private fun loadCards(): List<ServiceCard> {
         val json =

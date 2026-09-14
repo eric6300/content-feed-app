@@ -91,7 +91,7 @@ abstract class ArticleDao {
         articleId: Int,
         savedAtEpochMillis: Long,
         localImagePath: String?,
-    )
+    ): Int
 
     /** Feed/detail toggle: immediate, full removal — there is no undo for this path. */
     @Query(
@@ -119,14 +119,22 @@ abstract class ArticleDao {
         deadlineEpochMillis: Long,
     ): Int
 
+    /** No-ops (returns 0) once [nowEpochMillis] has reached or passed the pending
+     * deadline, even if [finalizeExpiredPendingUnsaves] hasn't run yet — undo must not
+     * succeed after its own window has closed. */
     @Query(
         """
         UPDATE articles
         SET pendingUnsaveAtEpochMillis = NULL
-        WHERE id = :articleId AND pendingUnsaveAtEpochMillis IS NOT NULL
+        WHERE id = :articleId
+          AND pendingUnsaveAtEpochMillis IS NOT NULL
+          AND pendingUnsaveAtEpochMillis > :nowEpochMillis
         """,
     )
-    abstract suspend fun undoPendingUnsave(articleId: Int): Int
+    abstract suspend fun undoPendingUnsave(
+        articleId: Int,
+        nowEpochMillis: Long,
+    ): Int
 
     @Query(
         """

@@ -22,11 +22,14 @@ interface FeedPlacementDao {
     @Query(
         """
         SELECT * FROM feed_placements
-        WHERE anchorArticleId = :articleId
+        WHERE anchorArticleId = :articleId AND contentType = :contentType
         LIMIT 1
         """,
     )
-    suspend fun findByAnchorArticleId(articleId: Int): FeedPlacementEntity?
+    suspend fun findByAnchorArticleId(
+        articleId: Int,
+        contentType: String,
+    ): FeedPlacementEntity?
 
     @Query("SELECT COUNT(*) FROM feed_placements")
     suspend fun countPlacements(): Int

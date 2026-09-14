@@ -16,7 +16,7 @@ import androidx.room.Entity
  */
 @Entity(
     tableName = "feed_placements",
-    primaryKeys = ["anchorArticleId"],
+    primaryKeys = ["anchorArticleId", "contentType"],
 )
 data class FeedPlacementEntity(
     val anchorArticleId: Int,

@@ -1,6 +1,8 @@
 package com.eric.contentfeed.core.freshness
 
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.emptyPreferences
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertFalse
@@ -66,6 +68,21 @@ class DataStoreFreshnessGateTest {
             gate.markFetched("articles")
             clock.now += 9.minutes.inWholeMilliseconds + 999
             assertFalse(gate.isStale("articles", 10.minutes))
+        }
+
+    @Test
+    fun corruptedPreferencesFileRecoversAsStaleInsteadOfCrashing() =
+        runTest {
+            // Not a valid preferences protobuf — simulates a file truncated by a kill
+            // during write, or low storage.
+            dataStoreFile.writeBytes(byteArrayOf(1, 2, 3, 4, 5))
+            val recoveringDataStore =
+                PreferenceDataStoreFactory.create(
+                    corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+                ) { dataStoreFile }
+            val recoveringGate = DataStoreFreshnessGate(recoveringDataStore, clock)
+
+            assertTrue(recoveringGate.isStale("articles", 10.minutes))
         }
 
     @Test
