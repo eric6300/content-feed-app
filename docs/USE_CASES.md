@@ -79,6 +79,21 @@ Scenario: New articles are added without disrupting the user's reading position
   When the article list refreshes and new articles are found
   Then the new articles are added at the top of the list
   And the articles and service cards the user was already viewing remain in place, unshifted
+
+Scenario: Successful article refresh prunes only expired unsaved cache rows
+  Given the local cache contains an unsaved article older than 7 days
+  And the local cache contains a saved article older than 7 days
+  And the local cache contains an unsaved article from within the last 7 days
+  When an article refresh completes successfully
+  Then the expired unsaved article is removed from the local cache
+  And the saved article is retained
+  And the recent unsaved article is retained
+
+Scenario: Failed article refresh does not prune the existing cache
+  Given the local cache contains an unsaved article older than 7 days
+  When an article refresh fails
+  Then the expired article remains available in the local cache
+  And the cached feed can still be shown
 ```
 
 ## Feature: Item detail
