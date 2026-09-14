@@ -4,7 +4,7 @@ Back to [README](../README.md) · [Spec](SPEC.md) · [Use Cases](USE_CASES.md) �
 
 ## Current state
 
-T0 is complete as documentation, and T1 is complete on `develop`. The repository now has the `:app`, `:core`, and `:feed` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, and CI. No production data layer or feature UI has been implemented yet.
+T0 is complete as documentation, T1 is complete on `develop`, and T2 is complete on `feature/t2-domain-and-local-persistence`. The repository now has the `:app`, `:core`, and `:feed` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, and the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool). No remote data sources, repositories/use cases, or feature UI have been implemented yet.
 
 The T1 baseline was verified with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The exact compatibility decisions are recorded in [`DECISIONS.md`](../DECISIONS.md).
 
@@ -53,17 +53,21 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 ### T2 — Domain contracts and local persistence
 
+**Status:** complete on `feature/t2-domain-and-local-persistence`.
+
 **Style contract:** local persistence owns Room entities/DAOs and DataStore adapters; feature/domain models do not expose Room or Retrofit types; DAOs expose `Flow` for reads and suspend commands for writes; all persistence names carry their role suffix.
 
 **Work:**
 
 - Define the article, weather snapshot/forecast, service card, saved-article, and feed-placement contracts needed by the use cases.
-- Implement Room entities/DAOs for article content, saved state/local image reference/pending-undo bookkeeping, weather cache, and sticky service-card placement. A placement stores a snapshot of its neighboring article's sort key (`published_at`, `id`), not a foreign key to that row, so it stays valid after the article is pruned (see `DECISIONS.md`).
+- Implement Room entities/DAOs for article content, saved state/local image reference/pending-undo bookkeeping, weather cache, and sticky feed placement. A placement stores a snapshot of its neighboring article's sort key (`published_at`, `id`), not a foreign key to that row, so it stays valid after the article is pruned. It also carries a `contentType` key (not a shared enum) and a `poolIndex` that cycles independently per content type, plus a global `assignmentSequence` tiebreaker — service cards are the only content type today, but this costs a future second insertable type no schema migration (see `DECISIONS.md`).
 - Implement the parameterized `FreshnessGate` backed by DataStore and keep its timestamps separate from Room data and per-article `fetchedAt` bookkeeping.
 - Define the hybrid cache retention policy: keep fetched feed content in Room for cache-first startup, prune unsaved article rows older than 7 days after the initial open/return article refresh succeeds (not after a manual pull-to-refresh or reconnect refresh), and protect saved articles from that cleanup. Ordinary feed images remain in Coil's cache; only saved images are copied to app-internal storage.
-- Add the bundled service-card JSON and local image references without a runtime DummyJSON dependency.
+- Add the bundled service-card JSON and local image references without a runtime DummyJSON dependency; a malformed pool entry is skipped at parse time instead of failing the whole pool.
 
-**Mandatory unit tests:** DAO query ordering, saved filtering, and Saved-list most-recently-saved ordering; unsaved-article retention query excludes saved rows and retains recent rows; upsert/idempotence; article `published_at` fallback to `date unknown`; sticky service-card anchor stability, including after its anchor article is pruned; FreshnessGate fresh/stale/bypass behavior; local service pool order and cycling.
+**Mandatory unit tests:** DAO query ordering, saved filtering, and Saved-list most-recently-saved ordering; unsaved-article retention query excludes saved rows and retains recent rows; upsert/idempotence; article `published_at` fallback to `date unknown`; sticky placement anchor stability, including after its anchor article is pruned, and per-content-type pool-index cycling; FreshnessGate fresh/stale/bypass behavior; local service pool order/cycling and malformed-entry skipping.
+
+**Verification:** `:core`/`:feed` unit tests and ktlint green; Room DAO tests run as instrumented `androidTest` (17 tests) against the `Pixel_9` emulator via `./gradlew :core:connectedDebugAndroidTest` — not part of `testDebugUnitTest`/CI (see `DECISIONS.md`); full `./gradlew build` green across `:core`/`:feed`/`:app`.
 
 **Commit:** `feat: add local feed persistence`.
 

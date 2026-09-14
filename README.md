@@ -11,8 +11,9 @@ A small content-feed app — a scrollable feed the user can open, save for later
 ## Current status
 
 - T0 (product, visual direction, and execution plan) is complete.
-- T1 (dependency, module, lint, and build bootstrap) is complete.
-- The next implementation slice is T2: domain contracts and local persistence.
+- T1 (dependency, module, lint, and build bootstrap) is complete on `develop`.
+- T2 (domain contracts and local persistence) is complete on `feature/t2-domain-and-local-persistence`.
+- The next implementation slice is T3: remote data sources and mapping.
 - The current dependency pins and compatibility exceptions are recorded in [`gradle/libs.versions.toml`](gradle/libs.versions.toml), [`docs/SPEC.md`](docs/SPEC.md), and [`DECISIONS.md`](DECISIONS.md).
 
 ## Plan & Sequencing
@@ -37,7 +38,8 @@ The complete, executable task breakdown is in [`docs/IMPLEMENTATION_PLAN.md`](do
 
 ## Known limitations / with more time
 
-- Production feature implementation has not started; the next step is T2, the domain contracts and local persistence slice.
+- The Room DAO tests (`ArticleDaoTest`, `FeedPlacementDaoTest`, `WeatherDaoTest`) run as instrumented `androidTest`, not under `testDebugUnitTest`, so they don't run in CI's current `build`/`ktlintCheck`/`testDebugUnitTest` workflow — run them manually against an emulator or device with `./gradlew :core:connectedDebugAndroidTest`. Picking up Robolectric to fold these into the JVM unit-test suite (and CI) is deferred, not rejected.
+- Remote data sources, repositories/use cases, and all feature UI have not started; the next step is T3, remote data sources and mapping.
 - Navigation 3 is not included in the current bootstrap because its stable Android artifacts require compileSdk 36 and AGP 8.9.1 or newer. The project deliberately retains AGP 8.7.3 and compileSdk 35; T6 must revisit this boundary before navigation implementation.
 - The Signal Desk visual direction and tokens are specified, but their Compose implementation and emulator verification are intentionally deferred to T7.
 - UI tests, full dark-theme implementation, animation, search/filtering, and additional source types remain lower priority after the must-have flow and unit-test gates.
