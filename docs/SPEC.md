@@ -1,9 +1,12 @@
 # Content Feed — Spec
 
-A small content-feed app in the spirit of LINE TODAY / VOOM: a scrollable, heterogeneous feed (articles, weather, service cards) the user can open, save for later, and read offline.
+A small content-feed app: a scrollable, heterogeneous feed (articles, weather, service cards) the user can open, save for later, and read offline.
 
 - [Use Cases](USE_CASES.md)
 - [Coding Style](CODING_STYLE.md)
+- [Design Direction](../DESIGN.md)
+- [Design Tokens](DESIGN_TOKENS.md)
+- [Implementation Plan](IMPLEMENTATION_PLAN.md)
 
 ## Scope
 
@@ -16,14 +19,16 @@ A small content-feed app in the spirit of LINE TODAY / VOOM: a scrollable, heter
 **Out of scope** (not attempted, or deferred — see `README.md` for the up-to-date list once implementation starts):
 - Search / filtering
 - Animations / transitions beyond what a standard Compose scaffold provides for free
-- Dark theme
+- Full dark-theme implementation (semantic dark roles remain reserved in the token contract and are deferred until after the core release)
 
 ## Architecture
 
-- **Modules**: `:app` (composition root — DI wiring, the Nav3 graph, `MainActivity`), `:core` (network, Room, DataStore, shared Koin modules), `:feed` (repositories/data sources, MVI state/view models, the feed/detail/saved Compose screens).
-- **Stack**: Kotlin + Jetpack Compose, MVI; Navigation 3; Koin for DI; OkHttp + Moshi (KSP codegen) + Retrofit, wrapped in sandwich for API responses; Room + DataStore Preferences for persistence and freshness timestamps; Coil for images; Custom Tabs for external links.
-- **CI**: GitHub Actions runs `ktlintCheck` + `testDebugUnitTest` on push to any branch and on pull requests.
+- **Modules**: `:app` (composition root — Koin wiring, `MainActivity`, and the future navigation graph), `:core` (network, Room, DataStore, and shared Koin modules), `:feed` (repositories/data sources, MVI state/view models, and the feed/detail/saved Compose screens).
+- **Stack**: Kotlin + Jetpack Compose, MVI; Koin for DI; OkHttp + Moshi (KSP codegen) + Retrofit, wrapped in sandwich for API responses; Room + DataStore Preferences for persistence and freshness timestamps; Coil for images; Custom Tabs for external links. Navigation 3 remains the planned navigation library, but is deferred until the build baseline can support its stable Android artifacts.
+- **CI**: GitHub Actions runs `build`, `ktlintCheck`, and `testDebugUnitTest` on push to any branch and on pull requests.
+- **Bootstrap status**: T1 is complete. The committed baseline keeps AGP `8.7.3`, Kotlin `2.0.21`, Gradle `8.13`, compileSdk/targetSdk `35`, and minSdk `24`; all external versions are centralized in `gradle/libs.versions.toml` and selected as latest-compatible versions that pass this baseline's resolution, compilation, and lint checks.
 - Naming/structure conventions and lint rules are in [Coding Style](CODING_STYLE.md); rationale for each architectural choice is recorded in `DECISIONS.md` as it's decided.
+- The original visual direction and token contract are in [Design Direction](../DESIGN.md) and [Design Tokens](DESIGN_TOKENS.md); the task/test/commit sequence is in [Implementation Plan](IMPLEMENTATION_PLAN.md).
 
 ## Data sources
 
@@ -40,11 +45,11 @@ A small content-feed app in the spirit of LINE TODAY / VOOM: a scrollable, heter
 - **Device support**: min SDK 24.
 - **Resilience**: no single source's failure, empty response, or missing field should crash the app or block the rest of the feed (see Use Cases → Loading, empty, and error states / Per-source data handling).
 
-## Must-have traceability
+## Requirements traceability
 
-Maps each must-have from the assignment brief to where it's satisfied in [Use Cases](USE_CASES.md).
+Maps each core product requirement to where it is specified in [Use Cases](USE_CASES.md).
 
-| Brief must-have | Satisfied by |
+| Core requirement | Satisfied by |
 |---|---|
 | Paginated feed with a detail screen | Feature: Feed browsing; Feature: Item detail |
 | Save/unsave, readable offline after first load | Feature: Save for later; Feature: Unsave; Feature: Offline access to saved items |

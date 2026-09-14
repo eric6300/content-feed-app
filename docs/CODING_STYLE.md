@@ -9,6 +9,9 @@ What's decided so far: which tools/rules are enforced, and the naming/structure 
 - **ktlint**, using the strict `ktlint_official` code style — no relaxed rules (wildcard imports stay banned, line length stays capped). Enforced via the `org.jlleitschuh.gradle.ktlint` Gradle plugin, applied to every module.
 - **Compose-specific lint** on top of ktlint (`compose-rules`), catching Compose pitfalls plain ktlint doesn't (unstable parameters, missing `remember`, modifier-ordering issues).
 - Both run in CI (`ktlintCheck`) on every push and pull request — not just a local pre-commit convenience.
+- Dependency versions are centralized in `gradle/libs.versions.toml`. “Latest” means the latest stable release that resolves, compiles, and passes lint on the committed AGP/Kotlin/Gradle/compileSdk baseline; compatibility pins are documented in `DECISIONS.md`.
+- Android lint remains strict (`abortOnError` and `warningsAsErrors`). Only the update-detector checks for intentionally pinned `AndroidGradlePluginVersion`, `GradleDependency`, and `OldTargetApi` are disabled; source and resource correctness checks remain enabled.
+- Compose `Unit` functions use the Compose convention of an uppercase name. Files containing these composables may use a local `ktlint:standard:function-naming` suppression because that convention intentionally differs from the general Kotlin function rule.
 
 ## MVI screen pattern
 
@@ -73,3 +76,14 @@ val feedModule = module {
 - One test class per view model / repository / data source, suffixed `Test`, in `src/test/` mirroring the main source's package path.
 - **MockK** for mocking dependencies (repositories, data sources, API interfaces).
 - **Turbine** for asserting `Flow` emissions (state sequences, cache/freshness behavior) instead of manual `collect` + latch juggling.
+
+## Task-level implementation contract
+
+The global rules above apply to every change. Before implementing each task in [Implementation Plan](IMPLEMENTATION_PLAN.md), add a scoped contract covering:
+
+- the owning module and layer, package boundary, public interfaces, and allowed dependency direction;
+- the source of truth and mapping boundary (for example, Room is not exposed to ViewModels);
+- naming and state/error conventions specific to that task; and
+- the use-case scenarios that become unit tests before production code is written.
+
+This contract narrows the global style for one slice; it must not introduce a competing architecture or silently change MVI, DI, persistence, or testing conventions. A task is complete only after its focused unit tests, lint, and relevant build gate pass.
