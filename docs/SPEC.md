@@ -12,7 +12,7 @@ A small content-feed app: a scrollable, heterogeneous feed (articles, weather, s
 
 **In scope** (see [Use Cases](USE_CASES.md) for full behavior):
 - A heterogeneous feed: a one-time weather hero (live), above a single paginated, infinite-scroll stream mixing articles (live) and service cards (local mock)
-- Item detail views for all three card types
+- Item detail views for articles and service cards (weather's forecast is shown inline in its feed card, not a separate detail screen — see `DECISIONS.md`)
 - Save/unsave for articles, with offline-readable saved articles and an undo option (weather and service cards are not saveable — see `DECISIONS.md`)
 - A freshness policy with per-source staleness thresholds for the two live sources, an app-wide offline/back-online banner, and explicit loading/empty/error states throughout
 
@@ -54,5 +54,5 @@ Maps each core product requirement to where it is specified in [Use Cases](USE_C
 | Paginated feed with a detail screen | Feature: Feed browsing; Feature: Item detail |
 | Save/unsave, readable offline after first load | Feature: Save for later; Feature: Unsave; Feature: Offline access to saved items |
 | Heterogeneous feed, ≥2 visually distinct card types, justified | Feature: Feed browsing ("fixed structure" scenario); Feature: Per-source data handling; rationale in `DECISIONS.md` (feed ordering rule, movies→service cards rationale, live API vs. mock split) |
-| Freshness policy (what "fresh" means, per-source cadence, single source of truth, offline banner/timestamp, data-change behavior, ordering) | Feature: Feed freshness; Feature: Connectivity |
+| Freshness policy (what "fresh" means, per-source cadence, single source of truth, offline banner, data-change behavior, ordering) | Feature: Feed freshness; Feature: Connectivity |
 | All UI states handled explicitly: loading, empty, error, offline | Feature: Loading, empty, and error states; Feature: Item detail (image loading/error scenarios); Feature: Connectivity (offline/back-online banners, external-link actions offline) |
