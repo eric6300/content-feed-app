@@ -41,7 +41,21 @@ Scenario: A service card's position, once set, does not move
   Given a service card has already been inserted at a position in the list
   When new articles are later added anywhere in the list (via pagination at the bottom, or a refresh prepending new articles at the top)
   Then that service card's position relative to its existing neighbors does not change
-  And the cumulative article count used to decide future service card slots only accounts for articles added after that point — it never recalculates or moves a slot already assigned
+  And the running count that placed it is never recalculated or renumbered because of content added elsewhere in the list
+
+Scenario: Prepended articles get their own fresh count, independent of the list already below them
+  Given a refresh prepends new articles above the currently loaded list
+  When the total number of newly prepended articles reaches a multiple of 5
+  Then a new service card is inserted among the prepended articles, using the next unused product from the pool
+  And this count starts from zero for the prepended batch — it does not continue the cumulative count that had already placed service cards further down the list
+  And no already-placed service card's position, or the count that produced it, changes as a result
+
+Scenario: A service card's position survives its neighboring article being pruned from the cache
+  Given a service card is positioned after a specific article
+  And that article is later removed from the local cache by the 7-day unsaved-article retention cleanup (see Feature: Feed freshness)
+  When the feed is rendered again
+  Then the service card still appears at the same relative position among the articles that remain
+  And it does not disappear, move, or duplicate as a result of its former neighbor being removed
 ```
 
 ## Feature: Feed freshness
@@ -80,20 +94,26 @@ Scenario: New articles are added without disrupting the user's reading position
   Then the new articles are added at the top of the list
   And the articles and service cards the user was already viewing remain in place, unshifted
 
-Scenario: Successful article refresh prunes only expired unsaved cache rows
+Scenario: Retention cleanup runs after the initial open/return refresh succeeds
   Given the local cache contains an unsaved article older than 7 days
   And the local cache contains a saved article older than 7 days
   And the local cache contains an unsaved article from within the last 7 days
-  When an article refresh completes successfully
+  When the app opens or returns to the foreground, its freshness check triggers an article refresh, and that refresh completes successfully
   Then the expired unsaved article is removed from the local cache
   And the saved article is retained
   And the recent unsaved article is retained
 
 Scenario: Failed article refresh does not prune the existing cache
   Given the local cache contains an unsaved article older than 7 days
-  When an article refresh fails
+  When the initial open/return article refresh fails
   Then the expired article remains available in the local cache
   And the cached feed can still be shown
+
+Scenario: A manual pull-to-refresh or a reconnect refresh does not run retention cleanup
+  Given the user is mid-session, already viewing feed content that may include articles older than 7 days
+  When the user performs a manual pull-to-refresh, or connectivity is restored and triggers a reconnect refresh, and either completes successfully
+  Then the article list is refetched and updated as usual
+  And no cache rows are pruned as a result — retention cleanup only ever runs from the initial open/return freshness check, so it never removes an article the user could currently have scrolled to
 ```
 
 ## Feature: Item detail
@@ -109,11 +129,6 @@ Scenario: Tapping an article's "read full article" action opens its source exter
   When the user taps "read full article"
   Then the app opens the article's original source page in an external browser or custom tab, not a further in-app screen
 
-Scenario: Opening a weather item shows its full detail
-  Given the user is viewing the feed
-  When the user taps the weather card
-  Then the app opens a detail view showing the extended forecast
-
 Scenario: Opening a service card shows its full detail
   Given the user is viewing the feed
   When the user taps a service card
@@ -125,10 +140,10 @@ Scenario: Tapping a service card's target action opens an external link
   Then the app opens that action's link in an external browser or custom tab, not the in-app detail view
   And this is a separate interaction from tapping elsewhere on the card, which opens the in-app detail view
 
-Scenario: Returning from detail preserves feed position
+Scenario: Returning from detail keeps the same items in view
   Given the user opened an item's detail view from partway down the feed
   When the user navigates back
-  Then the feed is shown at the same scroll position the user left it at
+  Then the feed shows the same items the user was looking at before, at the same scroll position
 
 Scenario: An article's detail view shows a loading state for its image
   Given the user opens an article's detail view whose image has not finished loading
@@ -142,6 +157,8 @@ Scenario: An article's detail view shows a placeholder if its image fails to loa
 ```
 
 Service cards have no equivalent scenario: their images are bundled as local app assets (see `DECISIONS.md`), not loaded over the network, so there is no loading or failure state to handle at the detail-view level.
+
+Weather has no separate detail view: its current conditions and forecast are shown directly in its feed card, and tapping it does nothing further (see `DECISIONS.md`).
 
 ## Feature: Save for later
 
@@ -170,6 +187,11 @@ Scenario: A saved article is available in the Saved list
   When the user opens the Saved list
   Then the saved article is present
 
+Scenario: The Saved list orders articles by when they were saved
+  Given the user has saved multiple articles at different times
+  When the user opens the Saved list
+  Then the most recently saved article appears first
+
 Scenario: Saving an article while offline reuses its already-cached image
   Given the user is offline and viewing an article whose image was already loaded
   When the user saves that article
@@ -195,34 +217,49 @@ Scenario: Save state stays in sync between the Saved list and the feed
 
 ## Feature: Unsave
 
+Undo only applies to removals made from the Saved list. A feed or detail save toggle is a direct, immediate action — tapping the save action again re-saves the article, so a separate undo step would just duplicate the toggle itself.
+
 ```gherkin
 Scenario: Unsaving an article from the feed or detail view
   Given the user has previously saved an article
   When the user taps the save action again from the feed or detail view
   Then the article's save indicator updates immediately
   And the article no longer appears in the Saved list
+  And this is a direct toggle — tapping the save action again re-saves it, with no separate undo step
 
 Scenario: Unsaving an article from the Saved list
   Given the user is viewing the Saved list
   When the user removes an article directly from the list
   Then the article disappears from the Saved list immediately
 
-Scenario: Unsaving offers a brief undo option
-  Given the user unsaves an article, from the feed, detail view, or Saved list
-  When the article disappears from the Saved list
+Scenario: Unsaving from the Saved list offers a brief undo option
+  Given the user removes an article from the Saved list
+  When the article disappears from the list
   Then the app shows an undo option for a few seconds
   And the article's local data and locally-copied image are not yet deleted
 
 Scenario: Undoing an unsave restores the article
-  Given the user just unsaved an article and the undo option is still showing
+  Given the user just removed an article from the Saved list and the undo option is still showing
   When the user taps undo
   Then the article is restored to the Saved list
   And its previously-copied local image is restored without being re-downloaded
 
 Scenario: Unsave is finalized once the undo window passes
-  Given the user unsaved an article and did not tap undo
+  Given the user removed an article from the Saved list and did not tap undo
   When the undo window expires
   Then the article's local data and locally-copied image are permanently deleted
+
+Scenario: A pending undo survives the app being closed and reopened
+  Given the user removed an article from the Saved list and the undo window has not yet expired
+  When the user closes and reopens the app before the window expires
+  Then the undo option is still available for the remaining time
+  And if the window has since expired while the app was closed, the article's local data and image are finalized as deleted on reopen instead of lingering indefinitely
+
+Scenario: Multiple pending undos are independent
+  Given the user has removed more than one article from the Saved list within the undo window
+  When the user taps undo for one of them
+  Then only that article is restored
+  And any other pending removal continues counting down independently
 ```
 
 ## Feature: Offline access to saved items
@@ -241,7 +278,7 @@ Scenario: Opening a saved article's detail while offline
   And the device has no network connectivity
   When the user opens that article from the Saved list
   Then its text content is displayed
-  And its locally-copied image is displayed, not a broken image or placeholder
+  And its locally-copied image is displayed if one was captured at save time, or a placeholder if it was saved without a local image copy — never a broken image
 ```
 
 Its "read full article" action follows the app-wide rule in Feature: Connectivity.
@@ -320,6 +357,12 @@ Scenario: Loading the next page of articles fails
   When the app fails to load the next page
   Then the articles already on screen remain visible
   And an inline retry control is shown at the bottom of the list instead of losing existing content
+
+Scenario: A manual pull-to-refresh fails
+  Given the user is viewing previously loaded feed content
+  When the user performs a manual pull-to-refresh and it fails
+  Then the existing content remains visible, unchanged
+  And a brief error indication is shown instead of silently doing nothing or clearing the feed
 ```
 
 ## Feature: Per-source data handling
@@ -361,20 +404,9 @@ Scenario: An article with a placeholder published date shows a neutral fallback
 
 ### Weather (Open-Meteo)
 
-Unlike the articles source above, no missing or null value has actually been observed on this source. The scenarios below are defensive handling kept in reserve, not a response to an observed problem.
+No missing or null value has actually been observed on this source, so per-field defensive handling isn't attempted. An unrecognized weather code is different in kind: Open-Meteo's WMO code table can grow codes this app's mapping doesn't yet know about, so this is a structural gap rather than a hypothetical one.
 
 ```gherkin
-Scenario: The daily forecast returns fewer days than requested
-  Given the daily forecast arrays (e.g. `temperature_2m_max`, `weather_code`) contain fewer entries than the number of days requested
-  When the weather section renders
-  Then it shows only the days actually present
-  And a shorter-than-expected forecast is not treated as an error
-
-Scenario: A null value within a forecast field shows a neutral placeholder
-  Given a specific day's value for a forecast field (e.g. `precipitation_probability_max`) is null
-  When the weather section renders that day
-  Then a neutral placeholder (e.g. "—") is shown for that field instead of blank space or a crash
-
 Scenario: An unrecognized weather code falls back to a neutral icon and label
   Given the current or a daily `weather_code` value (a WMO numeric code) is not one this app's icon/label mapping recognizes
   When the weather section renders that value
@@ -383,27 +415,12 @@ Scenario: An unrecognized weather code falls back to a neutral icon and label
 
 ### Service cards (local mock, seeded from DummyJSON)
 
-The live DummyJSON catalog has no products with missing fields. Since this app bundles a fixed local snapshot, these scenarios exist as defensive handling for a hand-edited or corrupted local file, not because the source data is ever actually incomplete.
+The live DummyJSON catalog has no products with missing fields, and this app's bundled snapshot is authored from that catalog, so per-field defensive handling for an individual product isn't attempted. The one case worth guarding is the pool file itself being malformed.
 
 ```gherkin
-Scenario: A missing product thumbnail shows a placeholder icon
-  Given a product entry has no thumbnail
-  When it is rendered as a service card
-  Then a placeholder icon is shown instead of a broken image
-
-Scenario: A missing price shows a neutral placeholder
-  Given a product entry has no price
-  When it is rendered as a service card
-  Then a neutral placeholder (e.g. "—") is shown instead of blank space
-
-Scenario: A missing blurb shows a neutral placeholder instead of blank space
-  Given a product entry has no description to derive a blurb from
-  When it is rendered as a service card
-  Then a neutral placeholder (e.g. "No description available") is shown in place of the blurb
-
-Scenario: A missing title falls back to a generic label and a safe target action
-  Given a product entry has no title
-  When it is rendered as a service card
-  Then a generic fallback label (e.g. "Featured item") is shown instead of blank space
-  And the target action uses a fixed fallback link instead of building a search query from an empty title
+Scenario: A malformed entry in the bundled product pool is skipped, not crashed on
+  Given the bundled service-card pool JSON contains an entry that fails to parse into the expected product shape
+  When the app loads the pool
+  Then that entry is skipped
+  And the remaining valid entries in the pool are loaded and used normally
 ```

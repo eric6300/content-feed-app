@@ -4,7 +4,7 @@ Back to [README](../README.md) · [Spec](SPEC.md) · [Use Cases](USE_CASES.md) �
 
 ## Current state
 
-T0 is complete as documentation, and T1 is complete on `develop`. The repository now has the `:app`, `:core`, and `:feed` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, and CI. No production data layer or feature UI has been implemented yet.
+T0 is complete as documentation, T1 is complete on `develop`, and T2 is complete on `feature/t2-domain-and-local-persistence`. The repository now has the `:app`, `:core`, and `:feed` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, and the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool). No remote data sources, repositories/use cases, or feature UI have been implemented yet.
 
 The T1 baseline was verified with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The exact compatibility decisions are recorded in [`DECISIONS.md`](../DECISIONS.md).
 
@@ -53,17 +53,21 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 ### T2 — Domain contracts and local persistence
 
+**Status:** complete on `feature/t2-domain-and-local-persistence`.
+
 **Style contract:** local persistence owns Room entities/DAOs and DataStore adapters; feature/domain models do not expose Room or Retrofit types; DAOs expose `Flow` for reads and suspend commands for writes; all persistence names carry their role suffix.
 
 **Work:**
 
 - Define the article, weather snapshot/forecast, service card, saved-article, and feed-placement contracts needed by the use cases.
-- Implement Room entities/DAOs for article content, saved state/local image reference, weather cache, and sticky service-card placement (`insertAfterArticleId`).
+- Implement Room entities/DAOs for article content, saved state/local image reference/pending-undo bookkeeping, weather cache, and sticky feed placement. A placement stores a snapshot of its neighboring article's sort key (`published_at`, `id`), not a foreign key to that row, so it stays valid after the article is pruned. It also carries a `contentType` key (not a shared enum) and a `poolIndex` that cycles independently per content type, plus a global `assignmentSequence` tiebreaker — service cards are the only content type today, but this costs a future second insertable type no schema migration (see `DECISIONS.md`).
 - Implement the parameterized `FreshnessGate` backed by DataStore and keep its timestamps separate from Room data and per-article `fetchedAt` bookkeeping.
-- Define the hybrid cache retention policy: keep fetched feed content in Room for cache-first startup, prune unsaved article rows older than 7 days after a successful article refresh, and protect saved articles from that cleanup. Ordinary feed images remain in Coil's cache; only saved images are copied to app-internal storage.
-- Add the bundled service-card JSON and local image references without a runtime DummyJSON dependency.
+- Define the hybrid cache retention policy: keep fetched feed content in Room for cache-first startup, prune unsaved article rows older than 7 days after the initial open/return article refresh succeeds (not after a manual pull-to-refresh or reconnect refresh), and protect saved articles from that cleanup. Ordinary feed images remain in Coil's cache; only saved images are copied to app-internal storage.
+- Add the bundled service-card JSON and local image references without a runtime DummyJSON dependency; a malformed pool entry is skipped at parse time instead of failing the whole pool.
 
-**Mandatory unit tests:** DAO query ordering and saved filtering; unsaved-article retention query excludes saved rows and retains recent rows; upsert/idempotence; article `published_at` fallback to `date unknown`; sticky service-card anchor stability; FreshnessGate fresh/stale/bypass behavior; local service pool order and cycling.
+**Mandatory unit tests:** DAO query ordering, saved filtering, and Saved-list most-recently-saved ordering; unsaved-article retention query excludes saved rows and retains recent rows; upsert/idempotence; article `published_at` fallback to `date unknown`; sticky placement anchor stability, including after its anchor article is pruned, and per-content-type pool-index cycling; FreshnessGate fresh/stale/bypass behavior; local service pool order/cycling and malformed-entry skipping.
+
+**Verification:** `:core`/`:feed` unit tests and ktlint green; Room DAO tests run as instrumented `androidTest` (17 tests) against the `Pixel_9` emulator via `./gradlew :core:connectedDebugAndroidTest` — not part of `testDebugUnitTest`/CI (see `DECISIONS.md`); full `./gradlew build` green across `:core`/`:feed`/`:app`.
 
 **Commit:** `feat: add local feed persistence`.
 
@@ -77,7 +81,7 @@ Every task below follows the same loop. A task is not ready to implement until i
 - Normalize image URLs, summaries, dates, missing fields, source-specific empty responses, HTTP failures, and article pagination end conditions.
 - Keep external links as validated domain actions; use the documented fallback for an empty service-card title.
 
-**Mandatory unit tests:** article mapping with missing image/summary/date; `date unknown` for the epoch sentinel; successful empty page; end-of-pagination; weather partial data/invalid response; source failure mapping; service-card CTA fallback.
+**Mandatory unit tests:** article mapping with missing image/summary/date; `date unknown` for the epoch sentinel; successful empty page; end-of-pagination; weather unrecognized-code fallback; source failure mapping; malformed service-card pool entry skipped without crashing.
 
 **Commit:** `feat: add feed data sources`.
 
@@ -89,12 +93,12 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 - Read cached feed data immediately from Room and run freshness checks/refetches independently.
 - Implement weather/article TTLs, manual refresh bypass, reconnect refresh, and source-isolated failure behavior.
-- Run the unsaved-article retention cleanup only after a successful article refresh; do not add background cleanup or an arbitrary fixed row cap in the first release.
+- Run the unsaved-article retention cleanup only after the initial open/return freshness refresh completes successfully — never after a manual pull-to-refresh or a reconnect refresh, since either could otherwise prune an article the user is currently scrolled to (see `DECISIONS.md`). Do not add background cleanup or an arbitrary fixed row cap in the first release.
 - Maintain the independent next-page offset cursor; freshness top-check always requests offset zero and compares stable article ids rather than deriving offsets from Room row count.
-- Compose weather once at the top, article order by `published_at DESC, id ASC`, and sticky service-card inserts without recalculating existing placements.
+- Compose weather once at the top, article order by `published_at DESC, id ASC`, and sticky service-card inserts without recalculating existing placements — robust to a placement's anchor article having since been pruned, and with prepended articles counted in their own independent window that never renumbers already-placed cards.
 - Expose loading/empty/error/end-of-pagination signals as domain-level state inputs.
 
-**Mandatory unit tests:** cached-first startup; each TTL boundary; manual refresh; reconnect refresh; successful article refresh runs retention cleanup while failed refresh preserves old cache; new article prepend without moving existing content; stable article ordering; independent source failure; page append/end/retry; sticky service-card behavior across refresh and pagination.
+**Mandatory unit tests:** cached-first startup; each TTL boundary; manual refresh; reconnect refresh; the initial open/return refresh runs retention cleanup on success and preserves the cache on failure, while manual pull-to-refresh and reconnect refresh never trigger retention cleanup; new article prepend without moving existing content; stable article ordering; independent source failure; page append/end/retry; sticky service-card behavior across refresh, pagination, and anchor-article pruning; prepended-article count window stays independent of already-placed cards.
 
 **Commit:** `feat: implement feed orchestration`.
 
@@ -104,11 +108,11 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 **Work:**
 
-- Implement save/unsave from feed, detail, and Saved contexts with one shared path.
+- Implement save/unsave from feed, detail, and Saved contexts with one shared path; feed/detail toggles are immediate (tapping again re-saves, no undo), while a removal from the Saved list goes through the undo window below (see `DECISIONS.md`).
 - Persist saved article content and local image references; reuse an already-loaded image offline and tolerate an unavailable image cache.
-- Implement the brief undo window and final local data/image deletion after expiry.
+- Implement the brief undo window, scoped to Saved-list removals, and final local data/image deletion after expiry — including finalizing on reopen if the window lapsed while the app was closed, and tracking multiple pending undos independently.
 
-**Mandatory unit tests:** save from each entry point; offline save with/without cached image; cross-screen saved-state consistency; immediate unsave presentation; undo restore; timeout finalization; Saved list empty/populated/offline reads.
+**Mandatory unit tests:** save from each entry point; offline save with/without cached image; cross-screen saved-state consistency; immediate feed/detail unsave with no undo; Saved-list undo restore; timeout finalization; pending undo surviving app restart; independent concurrent undos; Saved list empty/populated/offline reads/most-recently-saved ordering.
 
 **Commit:** `feat: add offline article saving`.
 

@@ -43,20 +43,25 @@ A shared base ViewModel owns the plumbing (state holder, event dispatch, effect 
 
 ## Naming & package layout
 
-Per feature, group files by layer, not by mixing everything into one package:
+Room/DataStore are shared infrastructure and live in `:core`; feature code (domain models, data sources, repositories, MVI, UI) lives in `:feed`. Within `:feed`, group files by layer, not by mixing everything into one package:
 
 ```
+core/
+  database/    ArticleEntity.kt, ArticleDao.kt, FeedPlacementEntity.kt, FeedPlacementDao.kt, ...
+  freshness/   FreshnessGate.kt, DataStoreFreshnessGate.kt
+  di/          CoreModule.kt
+
 feed/
-  contract/    FeedContract.kt
-  viewmodel/   FeedViewModel.kt
-  repository/  FeedRepository.kt
-  datasource/  FeedRemoteDataSource.kt, FeedLocalDataSource.kt
-  api/         FeedApi.kt
-  db/          ArticleEntity.kt, ArticleDao.kt
-  di/          FeedModule.kt
+  contract/       FeedContract.kt
+  viewmodel/      FeedViewModel.kt
+  repository/     FeedRepository.kt
+  domain/model/   feature domain models (e.g. Article.kt, WeatherData.kt, FeedPlacement.kt) — never expose Room/Retrofit types
+  data/local/     FeedLocalDataSource.kt, RoomFeedLocalDataSource.kt, and local-only mappers/parsers (JSON codecs, the bundled service-card catalog)
+  data/remote/    FeedRemoteDataSource.kt, FeedApi.kt, DTOs and mappers (added in T3)
+  di/             FeedModule.kt
 ```
 
-Suffix names by role, not by module: `XxxViewModel`, `XxxRepository`, `XxxRemoteDataSource`, `XxxApi`, `XxxEntity`, `XxxDao`. A file's name should tell you its layer without opening it.
+Suffix names by role, not by module: `XxxViewModel`, `XxxRepository`, `XxxRemoteDataSource`, `XxxLocalDataSource`, `XxxApi`, `XxxEntity`, `XxxDao`. A file's name should tell you its layer without opening it.
 
 ## Dependency injection
 
