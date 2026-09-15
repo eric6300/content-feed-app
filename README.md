@@ -13,8 +13,9 @@ A small content-feed app — a scrollable feed the user can open, save for later
 - T0 (product, visual direction, and execution plan) is complete.
 - T1 (dependency, module, lint, and build bootstrap) is complete and merged into `develop`.
 - T2 (domain contracts and local persistence) is complete and merged into `develop`.
-- T3 (remote data sources and mapping) is complete on `feature/t3-remote-data-sources`.
-- The next implementation slice is T4: repositories and feed use cases.
+- T3 (remote data sources and mapping) is complete and merged into `develop`.
+- T4 (repositories and feed use cases) is complete on `feature/t4-repositories-and-use-cases`, including fixes from a post-implementation code-review pass; not yet merged into `develop`.
+- The next implementation slice is T5: save, offline, and undo use cases.
 - The current dependency pins and compatibility exceptions are recorded in [`gradle/libs.versions.toml`](gradle/libs.versions.toml), [`docs/SPEC.md`](docs/SPEC.md), and [`DECISIONS.md`](DECISIONS.md).
 
 ## Plan & Sequencing
@@ -40,8 +41,8 @@ The complete, executable task breakdown is in [`docs/IMPLEMENTATION_PLAN.md`](do
 ## Known limitations / with more time
 
 - The Room DAO tests (`ArticleDaoTest`, `FeedPlacementDaoTest`, `WeatherDaoTest`) run as instrumented `androidTest`, not under `testDebugUnitTest`, so they don't run in CI's current `build`/`ktlintCheck`/`testDebugUnitTest` workflow — run them manually against an emulator or device with `./gradlew :core:connectedDebugAndroidTest`. Picking up Robolectric to fold these into the JVM unit-test suite (and CI) is deferred, not rejected.
-- Repositories/use cases and all feature UI have not started; the next step is T4, repositories and feed use cases.
-- T3's remote data sources are covered by unit tests (DTO parsing, mapping, failure handling, and an eager Retrofit call-adapter/converter contract check) but have not been exercised against the live network — no code yet issues a real request. That first real request, and confirming both sources' actual behavior on-device, happens once T4 wires them into a repository.
+- Feature UI has not started; the next step is T5, save/offline/undo use cases, followed by MVI contracts, navigation, and Compose UI.
+- T4's repositories still only run against the two live network sources at the data-source unit-test level (mocked); the first real request happens once a ViewModel actually invokes these use cases and the app runs end-to-end.
 - Navigation 3 is not included in the current bootstrap because its stable Android artifacts require compileSdk 36 and AGP 8.9.1 or newer. The project deliberately retains AGP 8.7.3 and compileSdk 35; T6 must revisit this boundary before navigation implementation.
 - The Signal Desk visual direction and tokens are specified, but their Compose implementation and emulator verification are intentionally deferred to T7.
 - UI tests, full dark-theme implementation, animation, search/filtering, and additional source types remain lower priority after the must-have flow and unit-test gates.
