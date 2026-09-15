@@ -32,6 +32,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -72,6 +73,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.android)
+
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 }
 
 ktlint {

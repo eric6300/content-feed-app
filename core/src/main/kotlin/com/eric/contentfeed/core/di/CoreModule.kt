@@ -11,6 +11,9 @@ import com.eric.contentfeed.core.database.ContentFeedDatabase
 import com.eric.contentfeed.core.freshness.DataStoreFreshnessGate
 import com.eric.contentfeed.core.freshness.EpochClock
 import com.eric.contentfeed.core.freshness.FreshnessGate
+import com.squareup.moshi.Moshi
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -38,4 +41,12 @@ val coreModule =
         single<DataStore<Preferences>> { androidContext().freshnessDataStore }
         single<EpochClock> { EpochClock { System.currentTimeMillis() } }
         single<FreshnessGate> { DataStoreFreshnessGate(get(), get()) }
+        single { HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC } }
+        single {
+            OkHttpClient
+                .Builder()
+                .addInterceptor(get<HttpLoggingInterceptor>())
+                .build()
+        }
+        single { Moshi.Builder().build() }
     }
