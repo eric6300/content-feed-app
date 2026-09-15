@@ -1,18 +1,19 @@
 package com.eric.contentfeed.feed.data.remote.spaceflightnews
 
-import com.eric.contentfeed.feed.data.remote.ArticlePageResult
-import com.eric.contentfeed.feed.data.remote.SPACEFLIGHT_NEWS_ARTICLES_PATH
+import com.eric.contentfeed.feed.data.remote.ArticlePage
+import com.eric.contentfeed.feed.data.remote.RemoteResult
 import com.eric.contentfeed.feed.domain.model.RemoteFailure
 import com.skydoves.sandwich.ApiResponse
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import retrofit2.Response
 import java.io.IOException
 
 class SpaceflightNewsRemoteDataSourceTest {
@@ -28,67 +29,92 @@ class SpaceflightNewsRemoteDataSourceTest {
     @Test
     fun aNonNullNextMeansItIsNotTheLastPage() =
         runTest {
-            coEvery { api.getArticles(any(), any(), any()) } returns
+            coEvery { api.getArticles(any(), any()) } returns
                 ApiResponse.Success(response(next = "https://example.com/next"))
 
-            val result = dataSource.fetchPage(offset = 0, limit = 10) as ArticlePageResult.Loaded
+            val result = dataSource.fetchPage(offset = 0, limit = 10)
 
-            assertFalse(result.isLastPage)
+            assertEquals(false, (result as RemoteResult.Loaded<ArticlePage>).value.isLastPage)
         }
 
     @Test
     fun aNullNextMeansItIsTheLastPage() =
         runTest {
-            coEvery { api.getArticles(any(), any(), any()) } returns
+            coEvery { api.getArticles(any(), any()) } returns
                 ApiResponse.Success(response(next = null, results = listOf(article(1))))
 
-            val result = dataSource.fetchPage(offset = 0, limit = 10) as ArticlePageResult.Loaded
+            val result = dataSource.fetchPage(offset = 0, limit = 10)
 
-            assertTrue(result.isLastPage)
+            assertEquals(true, (result as RemoteResult.Loaded<ArticlePage>).value.isLastPage)
         }
 
     @Test
     fun emptyResultsWithNullNextIsBothAnEmptyPageAndTheLastPage() =
         runTest {
-            coEvery { api.getArticles(any(), any(), any()) } returns
+            coEvery { api.getArticles(any(), any()) } returns
                 ApiResponse.Success(response(next = null, results = emptyList()))
 
-            val result = dataSource.fetchPage(offset = 0, limit = 10) as ArticlePageResult.Loaded
+            val result = dataSource.fetchPage(offset = 0, limit = 10)
 
-            assertEquals(emptyList<Any>(), result.articles)
-            assertTrue(result.isLastPage)
+            assertEquals(
+                RemoteResult.Loaded(ArticlePage(articles = emptyList(), isLastPage = true)),
+                result,
+            )
         }
 
     @Test
     fun resultCountBelowLimitWithNonNullNextIsStillNotTheLastPage() =
         runTest {
-            coEvery { api.getArticles(any(), any(), any()) } returns
+            coEvery { api.getArticles(any(), any()) } returns
                 ApiResponse.Success(response(next = "https://example.com/next", results = listOf(article(1))))
 
-            val result = dataSource.fetchPage(offset = 0, limit = 10) as ArticlePageResult.Loaded
+            val result = dataSource.fetchPage(offset = 0, limit = 10)
 
-            assertFalse(result.isLastPage)
+            assertEquals(false, (result as RemoteResult.Loaded<ArticlePage>).value.isLastPage)
         }
 
     @Test
-    fun httpFailureMapsToFailureResult() =
+    fun networkExceptionMapsToFailureResult() =
         runTest {
-            coEvery { api.getArticles(any(), any(), any()) } returns
+            coEvery { api.getArticles(any(), any()) } returns
                 ApiResponse.Failure.Exception(IOException())
 
-            val result = dataSource.fetchPage(offset = 0, limit = 10) as ArticlePageResult.Failure
+            val result = dataSource.fetchPage(offset = 0, limit = 10)
 
-            assertEquals(RemoteFailure.NetworkUnavailable, result.cause)
+            assertEquals(RemoteResult.Failure(RemoteFailure.NetworkUnavailable), result)
+        }
+
+    @Test
+    fun httpErrorMapsToFailureResultWithTheRealStatusCode() =
+        runTest {
+            coEvery { api.getArticles(any(), any()) } returns
+                ApiResponse.Failure.Error(errorResponse(503))
+
+            val result = dataSource.fetchPage(offset = 0, limit = 10)
+
+            assertEquals(RemoteResult.Failure(RemoteFailure.Http(503)), result)
+        }
+
+    @Test
+    fun aSuccessCarryingNoBodyMapsToUnknownFailure() =
+        runTest {
+            @Suppress("UNCHECKED_CAST")
+            coEvery { api.getArticles(any(), any()) } returns
+                ApiResponse.Success<Any>(Unit) as ApiResponse.Success<ArticleListResponseDto>
+
+            val result = dataSource.fetchPage(offset = 0, limit = 10)
+
+            assertEquals(RemoteResult.Failure(RemoteFailure.Unknown), result)
         }
 
     @Test
     fun offsetAndLimitReachTheApiVerbatim() =
         runTest {
-            coEvery { api.getArticles(any(), any(), any()) } returns ApiResponse.Success(response())
+            coEvery { api.getArticles(any(), any()) } returns ApiResponse.Success(response())
 
             dataSource.fetchPage(offset = 30, limit = 15)
 
-            coVerify { api.getArticles(url = SPACEFLIGHT_NEWS_ARTICLES_PATH, offset = 30, limit = 15) }
+            coVerify { api.getArticles(offset = 30, limit = 15) }
         }
 
     private fun response(
@@ -106,5 +132,11 @@ class SpaceflightNewsRemoteDataSourceTest {
             summary = null,
             publishedAt = null,
             authors = null,
+        )
+
+    private fun errorResponse(code: Int): Response<*> =
+        Response.error<Any>(
+            code,
+            "".toResponseBody("application/json".toMediaType()),
         )
 }

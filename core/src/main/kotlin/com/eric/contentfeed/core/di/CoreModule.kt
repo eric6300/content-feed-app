@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
+import com.eric.contentfeed.core.BuildConfig
 import com.eric.contentfeed.core.database.ContentFeedDatabase
 import com.eric.contentfeed.core.freshness.DataStoreFreshnessGate
 import com.eric.contentfeed.core.freshness.EpochClock
@@ -41,12 +42,16 @@ val coreModule =
         single<DataStore<Preferences>> { androidContext().freshnessDataStore }
         single<EpochClock> { EpochClock { System.currentTimeMillis() } }
         single<FreshnessGate> { DataStoreFreshnessGate(get(), get()) }
-        single { HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC } }
         single {
             OkHttpClient
                 .Builder()
-                .addInterceptor(get<HttpLoggingInterceptor>())
-                .build()
+                .apply {
+                    if (BuildConfig.DEBUG) {
+                        addInterceptor(
+                            HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC },
+                        )
+                    }
+                }.build()
         }
         single { Moshi.Builder().build() }
     }

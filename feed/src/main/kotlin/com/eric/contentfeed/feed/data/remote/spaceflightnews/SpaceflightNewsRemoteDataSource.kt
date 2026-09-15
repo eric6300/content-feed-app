@@ -1,9 +1,11 @@
 package com.eric.contentfeed.feed.data.remote.spaceflightnews
 
-import com.eric.contentfeed.feed.data.remote.ArticlePageResult
+import com.eric.contentfeed.feed.data.remote.ArticlePage
 import com.eric.contentfeed.feed.data.remote.ArticleRemoteDataSource
-import com.eric.contentfeed.feed.data.remote.SPACEFLIGHT_NEWS_ARTICLES_PATH
+import com.eric.contentfeed.feed.data.remote.RemoteResult
+import com.eric.contentfeed.feed.data.remote.bodyAs
 import com.eric.contentfeed.feed.data.remote.toRemoteFailure
+import com.eric.contentfeed.feed.domain.model.RemoteFailure
 import com.skydoves.sandwich.ApiResponse
 
 internal class SpaceflightNewsRemoteDataSource(
@@ -12,16 +14,13 @@ internal class SpaceflightNewsRemoteDataSource(
     override suspend fun fetchPage(
         offset: Int,
         limit: Int,
-    ): ArticlePageResult =
-        when (
-            val response =
-                api.getArticles(url = SPACEFLIGHT_NEWS_ARTICLES_PATH, offset = offset, limit = limit)
-        ) {
+    ): RemoteResult<ArticlePage> =
+        when (val response = api.getArticles(offset = offset, limit = limit)) {
             is ApiResponse.Success ->
-                ArticlePageResult.Loaded(
-                    articles = response.data.toArticles(),
-                    isLastPage = response.data.next == null,
-                )
-            is ApiResponse.Failure<*> -> ArticlePageResult.Failure(response.toRemoteFailure())
+                response
+                    .bodyAs<ArticleListResponseDto>()
+                    ?.let { RemoteResult.Loaded(ArticlePage(articles = it.toArticles(), isLastPage = it.next == null)) }
+                    ?: RemoteResult.Failure(RemoteFailure.Unknown)
+            is ApiResponse.Failure<*> -> RemoteResult.Failure(response.toRemoteFailure())
         }
 }

@@ -3,12 +3,10 @@ package com.eric.contentfeed.feed.data.remote
 internal const val SPACEFLIGHT_NEWS_BASE_URL = "https://api.spaceflightnewsapi.net/v4/"
 internal const val OPEN_METEO_BASE_URL = "https://api.open-meteo.com/v1/"
 
-// Passed as @Url at the call site (not baked into @GET(...)) so each endpoint's path
-// lives next to the base URL it's relative to, one place per source.
+// Each endpoint's path lives next to the base URL it's relative to, one place per
+// source; the API interfaces reference these constants directly in @GET(...).
 internal const val SPACEFLIGHT_NEWS_ARTICLES_PATH = "articles/"
 internal const val OPEN_METEO_FORECAST_PATH = "forecast"
-
-internal const val ARTICLE_PAGE_SIZE = 10
 
 // TODO(pending product decision if this ever needs to change): fixed display location.
 internal const val WEATHER_LATITUDE = 25.0330

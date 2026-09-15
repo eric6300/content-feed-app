@@ -23,6 +23,10 @@ android {
         jvmTarget = "11"
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     lint {
         abortOnError = true
         warningsAsErrors = true

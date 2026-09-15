@@ -1,14 +1,13 @@
 package com.eric.contentfeed.feed.data.remote.openmeteo
 
+import com.eric.contentfeed.feed.data.remote.OPEN_METEO_FORECAST_PATH
 import com.skydoves.sandwich.ApiResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
-import retrofit2.http.Url
 
 internal interface OpenMeteoApi {
-    @GET
+    @GET(OPEN_METEO_FORECAST_PATH)
     suspend fun getForecast(
-        @Url url: String,
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,
         @Query("current") current: String,
