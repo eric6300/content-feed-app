@@ -18,11 +18,13 @@ import okhttp3.logging.HttpLoggingInterceptor
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
-// A corrupted preferences file (e.g. truncated by a kill during write) falls back to
-// empty rather than throwing — every key reads as never-fetched, i.e. stale, which is
-// the safe default: it only forces a refetch, it never breaks the cache-first read.
-private val Context.freshnessDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "freshness",
+// Shared by FreshnessGate's per-source timestamps and the feed's pagination cursor —
+// named for the feature, not the first key type it held. A corrupted preferences file
+// (e.g. truncated by a kill during write) falls back to empty rather than throwing —
+// every freshness key reads as never-fetched (safe: only forces a refetch) and the
+// cursor reads as unset (safe: only re-requests the first page).
+private val Context.feedPreferencesDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "feed_prefs",
     corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
 )
 
@@ -39,7 +41,7 @@ val coreModule =
         single { get<ContentFeedDatabase>().articleDao() }
         single { get<ContentFeedDatabase>().weatherDao() }
         single { get<ContentFeedDatabase>().feedPlacementDao() }
-        single<DataStore<Preferences>> { androidContext().freshnessDataStore }
+        single<DataStore<Preferences>> { androidContext().feedPreferencesDataStore }
         single<EpochClock> { EpochClock { System.currentTimeMillis() } }
         single<FreshnessGate> { DataStoreFreshnessGate(get(), get()) }
         single {

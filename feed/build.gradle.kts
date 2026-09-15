@@ -53,6 +53,12 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
 
     implementation(libs.androidx.browser)
+    // :core's DataStore dependency is `implementation`-scoped (infrastructure stays
+    // internal to :core), so :feed declares its own reference to the type it needs to
+    // consume the `DataStore<Preferences>` singleton :core already constructs and
+    // injects — mirroring how :feed already declares its own moshi/retrofit/okhttp
+    // dependencies independently of what :core happens to also use.
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.moshi)
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.moshi)

@@ -34,8 +34,16 @@ internal class RoomFeedLocalDataSource(
     override fun observePlacements(): Flow<List<FeedPlacement>> =
         feedPlacementDao.observePlacements().map { placements -> placements.map(::toDomainPlacement) }
 
-    override suspend fun countPlacementsByContentType(contentType: String): Int =
-        feedPlacementDao.countPlacementsByContentType(contentType)
+    override suspend fun nextPlacementPoolIndex(contentType: String): Int = feedPlacementDao.nextPoolIndex(contentType)
+
+    override suspend fun nextPlacementAssignmentSequence(): Long = feedPlacementDao.nextAssignmentSequence()
+
+    override suspend fun deleteOrphanedPlacementsBelow(
+        oldestSurvivingPublishedAtEpochMillis: Long?,
+        oldestSurvivingArticleId: Int,
+    ): Int = feedPlacementDao.deleteOrphanedBelow(oldestSurvivingPublishedAtEpochMillis, oldestSurvivingArticleId)
+
+    override suspend fun deleteAllPlacements(): Int = feedPlacementDao.deleteAll()
 
     override suspend fun upsertArticles(
         articles: List<Article>,
