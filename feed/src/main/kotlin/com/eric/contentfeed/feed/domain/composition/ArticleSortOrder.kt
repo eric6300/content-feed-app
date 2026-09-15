@@ -15,15 +15,7 @@ internal fun isAtOrAboveAnchor(
     id: Int,
     anchorPublishedAtEpochMillis: Long?,
     anchorId: Int,
-): Boolean =
-    when {
-        publishedAtEpochMillis == null && anchorPublishedAtEpochMillis == null -> id <= anchorId
-        publishedAtEpochMillis == null -> false
-        anchorPublishedAtEpochMillis == null -> true
-        publishedAtEpochMillis > anchorPublishedAtEpochMillis -> true
-        publishedAtEpochMillis == anchorPublishedAtEpochMillis -> id <= anchorId
-        else -> false
-    }
+): Boolean = compareToAnchor(publishedAtEpochMillis, id, anchorPublishedAtEpochMillis, anchorId) <= 0
 
 /**
  * How many of [articles] sort at or above a placement anchored at
@@ -47,14 +39,29 @@ private fun isStrictlyAboveAnchor(
     id: Int,
     anchorPublishedAtEpochMillis: Long?,
     anchorId: Int,
-): Boolean =
+): Boolean = compareToAnchor(publishedAtEpochMillis, id, anchorPublishedAtEpochMillis, anchorId) < 0
+
+/**
+ * Negative when (`publishedAtEpochMillis`, `id`) sorts above the anchor, zero on an
+ * exact tie, positive when it sorts below — the shared comparison both
+ * [isAtOrAboveAnchor] and [isStrictlyAboveAnchor] derive their boundary from. SQLite's
+ * NULLS LAST for `DESC` means a null `publishedAtEpochMillis` always sorts below every
+ * non-null one, on either side of the comparison.
+ */
+private fun compareToAnchor(
+    publishedAtEpochMillis: Long?,
+    id: Int,
+    anchorPublishedAtEpochMillis: Long?,
+    anchorId: Int,
+): Int =
     when {
-        publishedAtEpochMillis == null && anchorPublishedAtEpochMillis == null -> id < anchorId
-        publishedAtEpochMillis == null -> false
-        anchorPublishedAtEpochMillis == null -> true
-        publishedAtEpochMillis > anchorPublishedAtEpochMillis -> true
-        publishedAtEpochMillis == anchorPublishedAtEpochMillis -> id < anchorId
-        else -> false
+        publishedAtEpochMillis == null && anchorPublishedAtEpochMillis == null -> id.compareTo(anchorId)
+        publishedAtEpochMillis == null -> 1
+        anchorPublishedAtEpochMillis == null -> -1
+        else ->
+            anchorPublishedAtEpochMillis.compareTo(publishedAtEpochMillis).let { cmp ->
+                if (cmp != 0) cmp else id.compareTo(anchorId)
+            }
     }
 
 /**

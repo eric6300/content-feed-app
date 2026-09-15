@@ -113,7 +113,7 @@ class FeedPlacementDaoTest {
 
             assertEquals(2, placementDao.nextPoolIndex(SERVICE_CARD))
             assertEquals(1, placementDao.nextPoolIndex(VIDEO_CARD))
-            assertEquals(3, placementDao.countPlacements())
+            assertEquals(3, placementDao.observePlacements().first().size)
 
             // Removes only the id=10 row (pub=100, below the 200 cutoff); the
             // surviving SERVICE_CARD row keeps poolIndex=1. A COUNT-based cycle would
@@ -177,6 +177,41 @@ class FeedPlacementDaoTest {
             assertNotNull(placementDao.findByAnchorArticleId(10, SERVICE_CARD))
             assertNotNull(placementDao.findByAnchorArticleId(20, SERVICE_CARD))
             assertEquals(null, placementDao.findByAnchorArticleId(30, SERVICE_CARD))
+        }
+
+    @Test
+    fun deleteOrphanedBelowBreaksATimestampTieByArticleId() =
+        runTest {
+            // Same anchorPublishedAtEpochMillis as the oldest survivor on both sides —
+            // exercises the CASE's tie-break branch (anchorArticleId vs
+            // oldestSurvivingArticleId) rather than the distinct-timestamp branches
+            // covered elsewhere.
+            placementDao.insertIfAbsent(
+                placement(
+                    anchorArticleId = 15,
+                    anchorPublishedAtEpochMillis = 200,
+                    poolIndex = 0,
+                    assignmentSequence = 0,
+                ),
+            )
+            placementDao.insertIfAbsent(
+                placement(
+                    anchorArticleId = 25,
+                    anchorPublishedAtEpochMillis = 200,
+                    poolIndex = 1,
+                    assignmentSequence = 1,
+                ),
+            )
+
+            val removed =
+                placementDao.deleteOrphanedBelow(
+                    oldestSurvivingPublishedAtEpochMillis = 200,
+                    oldestSurvivingArticleId = 20,
+                )
+
+            assertEquals(1, removed)
+            assertNotNull(placementDao.findByAnchorArticleId(15, SERVICE_CARD))
+            assertEquals(null, placementDao.findByAnchorArticleId(25, SERVICE_CARD))
         }
 
     @Test

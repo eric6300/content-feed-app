@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 internal class DefaultArticleRepository(
     private val localDataSource: FeedLocalDataSource,
@@ -35,6 +37,13 @@ internal class DefaultArticleRepository(
 
     private val mutableIsLastPage = MutableStateFlow(false)
     override val isLastPage: StateFlow<Boolean> = mutableIsLastPage.asStateFlow()
+
+    // Guards every local read-modify-write against the placement counters and the
+    // pagination cursor — refreshTop (reconnect) and loadNextPage (scroll) can be
+    // invoked concurrently on this same singleton, and neither is safe to interleave
+    // with the other's local mutation. Network fetches happen outside the lock so a
+    // stalled fetch on one path never blocks the other.
+    private val mutationMutex = Mutex()
 
     override fun observeArticles(): Flow<List<CachedArticle>> = localDataSource.observeArticles()
 
@@ -61,27 +70,39 @@ internal class DefaultArticleRepository(
     /** Discovers new articles by comparing stable ids against the cache — never by
      * comparing counts or deriving an offset from Room, which would break as soon as
      * retention pruning shrinks the cache independent of pagination. */
-    private suspend fun persistTopPage(page: ArticlePage) {
-        val existingIds = localDataSource.observeArticles().first().mapTo(HashSet()) { it.article.id }
-        localDataSource.upsertArticles(page.articles, clock.nowEpochMillis())
-        assignPlacements()
+    private suspend fun persistTopPage(page: ArticlePage) =
+        mutationMutex.withLock {
+            val existingIds = localDataSource.observeArticles().first().mapTo(HashSet()) { it.article.id }
+            localDataSource.upsertArticles(page.articles, clock.nowEpochMillis())
+            assignPlacements()
 
-        val newArticleCount = page.articles.count { it.id !in existingIds }
-        cursorStore.writeNextOffset(cursorStore.readNextOffset() + newArticleCount)
-        if (page.isLastPage) mutableIsLastPage.value = true
-    }
+            val newArticleCount = page.articles.count { it.id !in existingIds }
+            cursorStore.writeNextOffset(cursorStore.readNextOffset() + newArticleCount)
+            // Unconditional, not just on true: the stream can un-exhaust itself (grows
+            // past the last-seen boundary between refreshes), and a stale true here
+            // would permanently stick loadNextPage() as a no-op.
+            mutableIsLastPage.value = page.isLastPage
+        }
 
     override suspend fun loadNextPage() {
         if (mutableIsLastPage.value) return
         mutableAppendStatus.value = SourceStatus.Loading
+        // Read outside the lock only to pick an offset for the network request — the
+        // authoritative read-modify-write on commit happens inside the lock below, so
+        // a concurrent refreshTop can't be silently overwritten by a stale offset.
         val offset = cursorStore.readNextOffset()
         when (val result = remoteDataSource.fetchPage(offset = offset, limit = FeedPolicy.ARTICLE_PAGE_SIZE)) {
             is RemoteResult.Loaded -> {
                 val page = result.value
-                localDataSource.upsertArticles(page.articles, clock.nowEpochMillis())
-                assignPlacements()
-                cursorStore.writeNextOffset(offset + page.articles.size)
-                if (page.isLastPage) mutableIsLastPage.value = true
+                mutationMutex.withLock {
+                    localDataSource.upsertArticles(page.articles, clock.nowEpochMillis())
+                    assignPlacements()
+                    // Relative, not offset + page.articles.size: offset was read
+                    // before the network call and the lock, so a concurrent
+                    // refreshTop's cursor advance in between must not be clobbered.
+                    cursorStore.writeNextOffset(cursorStore.readNextOffset() + page.articles.size)
+                    mutableIsLastPage.value = page.isLastPage
+                }
                 mutableAppendStatus.value = SourceStatus.Ready
             }
             is RemoteResult.Failure -> {
@@ -108,18 +129,20 @@ internal class DefaultArticleRepository(
     }
 
     override suspend fun pruneStaleUnsavedArticles() {
-        val cutoff = clock.nowEpochMillis() - FeedPolicy.UNSAVED_ARTICLE_RETENTION.inWholeMilliseconds
-        localDataSource.pruneUnsavedArticles(cutoff)
+        mutationMutex.withLock {
+            val cutoff = clock.nowEpochMillis() - FeedPolicy.UNSAVED_ARTICLE_RETENTION.inWholeMilliseconds
+            localDataSource.pruneUnsavedArticles(cutoff)
 
-        // Sorted publishedAt DESC, id ASC (Room's own ordering), so the last surviving
-        // entry is the oldest one left — the boundary below which any placement is
-        // now orphaned (see FeedPlacementDao.deleteOrphanedBelow).
-        val survivors = localDataSource.observeArticles().first()
-        val oldest = survivors.lastOrNull()?.article
-        if (oldest == null) {
-            localDataSource.deleteAllPlacements()
-        } else {
-            localDataSource.deleteOrphanedPlacementsBelow(oldest.publishedAtEpochMillis, oldest.id)
+            // Sorted publishedAt DESC, id ASC (Room's own ordering), so the last
+            // surviving entry is the oldest one left — the boundary below which any
+            // placement is now orphaned (see FeedPlacementDao.deleteOrphanedBelow).
+            val survivors = localDataSource.observeArticles().first()
+            val oldest = survivors.lastOrNull()?.article
+            if (oldest == null) {
+                localDataSource.deleteAllPlacements()
+            } else {
+                localDataSource.deleteOrphanedPlacementsBelow(oldest.publishedAtEpochMillis, oldest.id)
+            }
         }
     }
 }

@@ -15,8 +15,13 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -120,6 +125,42 @@ class DefaultArticleRepositoryTest {
         }
 
     @Test
+    fun isLastPageClearsWhenALaterRefreshDiscoversTheStreamHasGrownPastIt() =
+        runTest {
+            // First refresh: the whole (small) stream fits in one page -> isLastPage
+            // = true. Second refresh: the stream has since grown past a full page of
+            // brand-new articles -> isLastPage = false. A bug that only ever assigns
+            // `true` (never `false`) would leave the flag stuck, permanently
+            // short-circuiting loadNextPage() below.
+            coEvery { freshnessGate.isStale(any(), any()) } returns true
+            coEvery { remoteDataSource.fetchPage(0, FeedPolicy.ARTICLE_PAGE_SIZE) } returnsMany
+                listOf(
+                    RemoteResult.Loaded(ArticlePage(articles(1..10), isLastPage = true)),
+                    RemoteResult.Loaded(ArticlePage(articles(100..119), isLastPage = false)),
+                )
+            every { localDataSource.observeArticles() } returnsMany
+                listOf(
+                    flowOf(emptyList()),
+                    flowOf(cachedArticles(1..10)),
+                    flowOf(cachedArticles(1..10)),
+                    flowOf(cachedArticles(1..10) + cachedArticles(100..119)),
+                )
+            every { localDataSource.observePlacements() } returns flowOf(emptyList())
+
+            repository.refreshTop(bypassFreshness = false)
+            assertEquals(true, repository.isLastPage.value)
+
+            repository.refreshTop(bypassFreshness = false)
+            assertEquals(false, repository.isLastPage.value)
+
+            repository.loadNextPage()
+
+            // 2 top refreshes + 1 append fetch only happens if loadNextPage() actually
+            // reached the network instead of returning early on a stale `true`.
+            coVerify(exactly = 3) { remoteDataSource.fetchPage(any(), any()) }
+        }
+
+    @Test
     fun failedTopRefreshDoesNotMarkFetchedOrTouchTheCache() =
         runTest {
             coEvery { freshnessGate.isStale(any(), any()) } returns true
@@ -200,6 +241,70 @@ class DefaultArticleRepositoryTest {
             coVerify { localDataSource.deleteAllPlacements() }
             coVerify(exactly = 0) { localDataSource.deleteOrphanedPlacementsBelow(any(), any()) }
         }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun concurrentRefreshAndAppendDoNotLoseEachOthersCursorAdvance() =
+        runTest {
+            // A real fake, not a mock: the bug this guards against is an absolute
+            // cursor write computed from a value read before the network round trip,
+            // which mockk's relaxed stubbing can't reproduce — only a real mutable
+            // `offset` can show one write clobbering the other.
+            val fakeCursorStore = FakeCursorStore()
+            val gatedRemote = GatedAppendRemoteDataSource()
+            coEvery { freshnessGate.isStale(any(), any()) } returns true
+            every { localDataSource.observeArticles() } returns flowOf(emptyList())
+            every { localDataSource.observePlacements() } returns flowOf(emptyList())
+
+            val racyRepository =
+                DefaultArticleRepository(localDataSource, gatedRemote, fakeCursorStore, freshnessGate, clock)
+
+            // The append reads the cursor and issues its fetch, then blocks on the
+            // gate before it can commit anything — exactly the window in which a
+            // concurrent refresh's own cursor advance must not be lost.
+            val appendJob = launch { racyRepository.loadNextPage() }
+            runCurrent()
+
+            racyRepository.refreshTop(bypassFreshness = false)
+
+            gatedRemote.appendGate.complete(Unit)
+            advanceUntilIdle()
+            appendJob.join()
+
+            // Refresh discovered 5 new articles, append fetched 5 more — both
+            // contributions must land regardless of interleaving. An absolute
+            // (non-relative) append write would instead clobber the refresh's commit
+            // and leave this at 5.
+            assertEquals(10, fakeCursorStore.offset)
+        }
+
+    private class FakeCursorStore : FeedCursorStore {
+        var offset: Int = 0
+
+        override suspend fun readNextOffset(): Int = offset
+
+        override suspend fun writeNextOffset(offset: Int) {
+            this.offset = offset
+        }
+    }
+
+    private inner class GatedAppendRemoteDataSource : ArticleRemoteDataSource {
+        val appendGate = CompletableDeferred<Unit>()
+        private var calls = 0
+
+        override suspend fun fetchPage(
+            offset: Int,
+            limit: Int,
+        ): RemoteResult<ArticlePage> {
+            calls++
+            return if (calls == 1) {
+                appendGate.await()
+                RemoteResult.Loaded(ArticlePage(articles(6..10), isLastPage = false))
+            } else {
+                RemoteResult.Loaded(ArticlePage(articles(1..5), isLastPage = false))
+            }
+        }
+    }
 
     private fun articles(ids: IntRange): List<Article> = ids.map(::article)
 

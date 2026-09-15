@@ -31,9 +31,6 @@ interface FeedPlacementDao {
         contentType: String,
     ): FeedPlacementEntity?
 
-    @Query("SELECT COUNT(*) FROM feed_placements")
-    suspend fun countPlacements(): Int
-
     /** Next pool index to assign for [contentType]. `MAX(poolIndex) + 1`, not a row
      * count — a count breaks the moment [deleteOrphanedBelow] removes a row, since the
      * cycle must keep advancing from where it left off, not shrink back. */
