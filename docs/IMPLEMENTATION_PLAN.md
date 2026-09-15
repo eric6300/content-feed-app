@@ -96,6 +96,8 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 ### T4 — Repositories and feed use cases
 
+**Status:** complete on `feature/t4-repositories-and-use-cases`.
+
 **Style contract:** repositories are the only boundary that coordinates remote fetch, Room persistence, freshness, and pagination. Room is the single source of truth for UI reads. Use cases expose domain data and explicit scoped errors; they do not leak `ApiResponse`, DTOs, DAOs, or DataStore keys.
 
 **Work:**
@@ -108,6 +110,8 @@ Every task below follows the same loop. A task is not ready to implement until i
 - Expose loading/empty/error/end-of-pagination signals as domain-level state inputs.
 
 **Mandatory unit tests:** cached-first startup; each TTL boundary; manual refresh; reconnect refresh; the initial open/return refresh runs retention cleanup on success and preserves the cache on failure, while manual pull-to-refresh and reconnect refresh never trigger retention cleanup; new article prepend without moving existing content; stable article ordering; independent source failure; page append/end/retry; sticky service-card behavior across refresh, pagination, and anchor-article pruning; prepended-article count window stays independent of already-placed cards.
+
+**Verification:** `:core`/`:feed` unit tests and ktlint green (100 `:feed` unit tests, including the new composition/repository/use-case suites); full `./gradlew build` green across `:core`/`:feed`/`:app`; `./gradlew :core:connectedDebugAndroidTest` green (24 tests) against the `Pixel_9` emulator, covering the new `FeedPlacementDao` queries (`nextPoolIndex`/`nextAssignmentSequence`/`deleteOrphanedBelow`) added for this task — not part of `testDebugUnitTest`/CI, consistent with T2.
 
 **Commit:** `feat: implement feed orchestration`.
 

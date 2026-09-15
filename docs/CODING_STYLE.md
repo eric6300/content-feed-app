@@ -54,9 +54,19 @@ core/
 feed/
   contract/       FeedContract.kt
   viewmodel/      FeedViewModel.kt
-  repository/     FeedRepository.kt
-  domain/model/   feature domain models (e.g. Article.kt, WeatherData.kt, FeedPlacement.kt) — never expose Room/Retrofit types
-  data/local/     FeedLocalDataSource.kt, RoomFeedLocalDataSource.kt, and local-only mappers/parsers (JSON codecs, the bundled service-card catalog)
+  repository/     ArticleRepository.kt, WeatherRepository.kt (+ their Default impls),
+                  FeedPolicy.kt (TTL/pagination/retention constants), SourceRefresher.kt
+                  (shared stale-check → fetch → persist → mark-fetched helper)
+  domain/model/   feature domain models (e.g. Article.kt, WeatherData.kt, FeedPlacement.kt,
+                  FeedItem.kt, FeedSnapshot.kt) — never expose Room/Retrofit types
+  domain/composition/  pure feed-assembly functions with no Room/coroutines/clock
+                  dependency: ServiceCardPlacementAssigner.kt, FeedComposer.kt,
+                  ArticleSortOrder.kt (the shared sort-key comparator both use)
+  domain/usecase/ ObserveFeedUseCase.kt, RefreshFeedUseCase.kt, LoadNextArticlePageUseCase.kt —
+                  the only layer ViewModels depend on for repository behavior
+  data/local/     FeedLocalDataSource.kt, RoomFeedLocalDataSource.kt, FeedCursorStore.kt
+                  (persisted pagination cursor, DataStore-backed — see note below), and
+                  local-only mappers/parsers (JSON codecs, the bundled service-card catalog)
   data/remote/    ArticleRemoteDataSource.kt, WeatherRemoteDataSource.kt (interfaces + their
                   payload types), RemoteResult.kt (shared Loaded/Failure result wrapper),
                   RemoteFailureMapper.kt, RetrofitFactory.kt,
@@ -71,6 +81,14 @@ feed/
 `data/remote` sub-packages by source because each live source has its own base URL, DTO
 shape, and mapper; the shared boundary types (data-source interfaces, failure mapping,
 Retrofit construction) stay at the `data/remote` root.
+
+`FeedCursorStore` is the one deliberate exception to "DataStore lives in `:core`": its
+*infrastructure* (the backing `DataStore<Preferences>` file, corruption handling) is
+still built and owned by `coreModule`, but the store itself is feed-specific vocabulary
+(an article-pagination offset), not shared infrastructure, so its interface and impl
+live in `:feed` and consume the injected `DataStore<Preferences>` singleton directly —
+`:feed` declares its own `datastore-preferences` dependency for the type reference,
+the same way it already declares its own moshi/retrofit/okhttp independently of `:core`.
 
 Suffix names by role, not by module: `XxxViewModel`, `XxxRepository`, `XxxRemoteDataSource`, `XxxLocalDataSource`, `XxxApi`, `XxxEntity`, `XxxDao`. A file's name should tell you its layer without opening it.
 
