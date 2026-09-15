@@ -17,7 +17,26 @@ interface FeedLocalDataSource {
 
     fun observePlacements(): Flow<List<FeedPlacement>>
 
-    suspend fun countPlacementsByContentType(contentType: String): Int
+    /** Next pool index to assign within [contentType] — `MAX(poolIndex) + 1`, immune
+     * to rows [deleteOrphanedPlacementsBelow] has removed. */
+    suspend fun nextPlacementPoolIndex(contentType: String): Int
+
+    /** Next global assignment sequence across all content types — same `MAX + 1`
+     * reasoning as [nextPlacementPoolIndex]. */
+    suspend fun nextPlacementAssignmentSequence(): Long
+
+    /** Removes placement rows orphaned by the retention cleanup pruning a whole fetch
+     * session of unsaved articles at once. Pass the oldest surviving article's sort
+     * key (`published_at`, `id`), or `null`/any value when there are no surviving
+     * articles to protect. Returns the number of rows removed. */
+    suspend fun deleteOrphanedPlacementsBelow(
+        oldestSurvivingPublishedAtEpochMillis: Long?,
+        oldestSurvivingArticleId: Int,
+    ): Int
+
+    /** Used when retention cleanup leaves zero surviving articles — see
+     * [deleteOrphanedPlacementsBelow]. */
+    suspend fun deleteAllPlacements(): Int
 
     suspend fun upsertArticles(
         articles: List<Article>,
