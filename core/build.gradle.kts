@@ -23,6 +23,10 @@ android {
         jvmTarget = "11"
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     lint {
         abortOnError = true
         warningsAsErrors = true
@@ -39,14 +43,10 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.moshi)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.moshi)
     ksp(libs.moshi.kotlin.codegen)
-    implementation(libs.sandwich)
-    implementation(libs.sandwich.retrofit)
 
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.core)

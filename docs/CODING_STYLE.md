@@ -57,9 +57,20 @@ feed/
   repository/     FeedRepository.kt
   domain/model/   feature domain models (e.g. Article.kt, WeatherData.kt, FeedPlacement.kt) — never expose Room/Retrofit types
   data/local/     FeedLocalDataSource.kt, RoomFeedLocalDataSource.kt, and local-only mappers/parsers (JSON codecs, the bundled service-card catalog)
-  data/remote/    FeedRemoteDataSource.kt, FeedApi.kt, DTOs and mappers (added in T3)
+  data/remote/    ArticleRemoteDataSource.kt, WeatherRemoteDataSource.kt (interfaces + their
+                  payload types), RemoteResult.kt (shared Loaded/Failure result wrapper),
+                  RemoteFailureMapper.kt, RetrofitFactory.kt,
+                  IsoTimestampParser.kt, RemoteSourceConfig.kt
+    spaceflightnews/  SpaceflightNewsApi.kt, SpaceflightNewsDto.kt, ArticleMapper.kt,
+                      SpaceflightNewsRemoteDataSource.kt
+    openmeteo/        OpenMeteoApi.kt, OpenMeteoDto.kt, WeatherMapper.kt,
+                      OpenMeteoRemoteDataSource.kt
   di/             FeedModule.kt
 ```
+
+`data/remote` sub-packages by source because each live source has its own base URL, DTO
+shape, and mapper; the shared boundary types (data-source interfaces, failure mapping,
+Retrofit construction) stay at the `data/remote` root.
 
 Suffix names by role, not by module: `XxxViewModel`, `XxxRepository`, `XxxRemoteDataSource`, `XxxLocalDataSource`, `XxxApi`, `XxxEntity`, `XxxDao`. A file's name should tell you its layer without opening it.
 

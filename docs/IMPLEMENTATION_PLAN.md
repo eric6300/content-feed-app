@@ -4,7 +4,7 @@ Back to [README](../README.md) · [Spec](SPEC.md) · [Use Cases](USE_CASES.md) �
 
 ## Current state
 
-T0 is complete as documentation, T1 is complete on `develop`, and T2 is complete on `feature/t2-domain-and-local-persistence`. The repository now has the `:app`, `:core`, and `:feed` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, and the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool). No remote data sources, repositories/use cases, or feature UI have been implemented yet.
+T0 is complete as documentation, and T1 and T2 are both complete and merged into `develop`. T3 is complete on `feature/t3-remote-data-sources`. The repository now has the `:app`, `:core`, and `:feed` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool), and the remote data sources for articles and weather with their DTO→domain mappers. No repositories/use cases or feature UI have been implemented yet.
 
 The T1 baseline was verified with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The exact compatibility decisions are recorded in [`DECISIONS.md`](../DECISIONS.md).
 
@@ -73,15 +73,24 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 ### T3 — Remote data sources and mapping
 
-**Style contract:** Retrofit APIs and DTOs live only in the remote data-source layer; mappers normalize missing/invalid source fields into domain-safe values; sandwich outcomes are converted at the boundary into explicit success/empty/failure results; no UI type imports.
+**Status:** complete on `feature/t3-remote-data-sources`.
+
+**Style contract:** Retrofit APIs and DTOs live only in `:feed`'s `data/remote` layer and stay `internal`; `:core` owns only the shared, source-agnostic network plumbing (one `OkHttpClient`, the `Moshi` singleton). Mappers normalize missing/invalid source fields into domain-safe values and perform no interpretation of raw source codes. Sandwich `ApiResponse`, Retrofit/OkHttp types, and DTOs are converted at the `RemoteDataSource` boundary into a shared `RemoteResult<T>` (`Loaded`/`Failure`) wrapping per-source payloads (`ArticlePage`, `WeatherData`) plus a shared `RemoteFailure` vocabulary, and never leak past it. No Room, repository, or UI type imports.
 
 **Work:**
 
-- Add Spaceflight News article paging, Open-Meteo weather, and the local service source adapter.
-- Normalize image URLs, summaries, dates, missing fields, source-specific empty responses, HTTP failures, and article pagination end conditions.
-- Keep external links as validated domain actions; use the documented fallback for an empty service-card title.
+- Move the `Moshi` singleton from `feedModule` to `coreModule` and add the shared `OkHttpClient` (with a `BASIC` `HttpLoggingInterceptor`, active only in debug builds via `BuildConfig.DEBUG`) alongside it; declare the `INTERNET` permission in `core/src/main/AndroidManifest.xml` so the manifest merger folds it into `:app`.
+- Add Spaceflight News article paging (`GET articles/`, with `offset`/`limit`) and Open-Meteo weather (`GET forecast`, with current + daily field lists). The local service-card source is **not** part of this task — `ServiceCardCatalog` was already built in T2.
+- Normalize article image URLs, summaries, authors, and dates; map the raw Open-Meteo `current`/columnar `daily` payloads onto `WeatherData`/`WeatherForecastDay` without interpreting the WMO `weather_code` (it passes through as a raw `Int?`; its icon/label fallback is T6's view-state concern).
+- Convert sandwich outcomes into `RemoteResult<ArticlePage>`/`RemoteResult<WeatherData>`/`RemoteFailure` (network-unavailable / HTTP code / unknown). A successful empty page and end-of-pagination both collapse into `Loaded`, with `isLastPage` derived from the source's `next` field being null — never from comparing result count to the requested limit. A 2xx response with no body (sandwich substitutes `kotlin.Unit` for the DTO) is also normalized into `Failure(RemoteFailure.Unknown)` rather than being allowed to throw.
+- Take `offset`/`limit` as plain parameters; T4 owns the next-page cursor.
+- Enable core library desugaring in `:feed` and `:app` so `java.time` (`IsoTimestampParser`) is usable on minSdk 24, keeping ISO-8601 parsing a pure, separately-testable technical concern from the epoch-sentinel business rule (which lives in `ArticleMapper`).
 
-**Mandatory unit tests:** article mapping with missing image/summary/date; `date unknown` for the epoch sentinel; successful empty page; end-of-pagination; weather unrecognized-code fallback; source failure mapping; malformed service-card pool entry skipped without crashing.
+**Not in this task:** the weather unrecognized-code icon/label fallback (`USE_CASES.md` → Per-source data handling → Weather) is a rendering concern, not a parsing one — it is covered by T6's WMO-code-to-`WeatherCondition` mapping below. The empty service-card title fallback was cut outright (see `DECISIONS.md`, "Trimmed defensive per-field scenarios") and has no implementation here.
+
+**Mandatory unit tests:** DTO parsing against captured real responses from both sources; article mapping with missing image, missing summary, and missing/empty authors; `date unknown` for the epoch sentinel `1970-01-01T00:00:00Z`; ISO-8601 parsing of `Z`, fractional-second, and explicit-offset timestamps, and null for unparseable input; successful empty page; end-of-pagination from a null `next`; weather current/daily mapping including a raw unrecognized WMO code passing through unmodified; source failure mapping (HTTP error code, IO exception, unknown throwable, no-body success) for both sources; Retrofit call-adapter/converter wiring validated eagerly for both API interfaces.
+
+**Verification:** `:core`/`:feed` ktlintCheck and `testDebugUnitTest` green (62 tests in `:feed`); full `./gradlew build` green (Android Lint's `NewApi` check is what actually proves the desugaring config, since JVM unit tests have `java.time` natively; the release variant is also what proves the logging interceptor is compiled out via `BuildConfig.DEBUG`); confirmed `INTERNET` reaches `:app`'s merged manifest.
 
 **Commit:** `feat: add feed data sources`.
 
@@ -126,8 +135,9 @@ Every task below follows the same loop. A task is not ready to implement until i
 - Represent source-scoped loading/empty/error states, pagination retry, connectivity banner, save/undo, and external-link effects explicitly.
 - Wire the navigation graph and preserve feed scroll position when returning from detail. Before implementation, resolve the Navigation 3 compatibility boundary recorded in T1; do not add an incompatible stable artifact or silently switch navigation libraries.
 - Add app-wide connectivity observation at the composition root without duplicating banner logic per screen.
+- Map the raw WMO `weatherCode: Int?` carried through by T3 onto a `WeatherCondition` view-state enum, with an explicit neutral fallback for any code this app's table does not recognize (`USE_CASES.md` → Per-source data handling → Weather). The enum-to-icon/label binding is T7's; the code-to-enum decision is unit-tested here.
 
-**Mandatory unit tests:** initial/cache-first state sequences; feed refresh/pagination event handling; scoped errors; save/undo effects; detail navigation/external-link effects; Saved state; connectivity transitions. Use Turbine for Flow/effect assertions.
+**Mandatory unit tests:** initial/cache-first state sequences; feed refresh/pagination event handling; scoped errors; save/undo effects; detail navigation/external-link effects; Saved state; connectivity transitions; WMO weather-code mapping, including an unrecognized code (and a null code) falling back to the neutral `WeatherCondition` rather than crashing or producing a blank. Use Turbine for Flow/effect assertions.
 
 **Commit:** `feat: add feed presentation contracts`.
 
