@@ -3,9 +3,11 @@
 package com.eric.contentfeed.feed.presentation.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -318,16 +320,7 @@ private fun WeatherContent(weather: WeatherUiModel) {
                         conditionIcon = conditionDisplay.icon.imageVector(),
                         modifier = Modifier.weight(1.35f),
                     )
-                    WeatherMeasure(
-                        label = stringResource(R.string.weather_feels_like),
-                        value = feelsLike,
-                        modifier = Modifier.weight(0.6f),
-                    )
-                    WeatherMeasure(
-                        label = stringResource(R.string.weather_wind),
-                        value = wind,
-                        modifier = Modifier.weight(0.6f),
-                    )
+                    WeatherMeasures(feelsLike = feelsLike, wind = wind, weight = 0.6f)
                 }
             } else {
                 WeatherPrimaryContent(
@@ -339,16 +332,7 @@ private fun WeatherContent(weather: WeatherUiModel) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(dimens.space3),
                 ) {
-                    WeatherMeasure(
-                        label = stringResource(R.string.weather_feels_like),
-                        value = feelsLike,
-                        modifier = Modifier.weight(1f),
-                    )
-                    WeatherMeasure(
-                        label = stringResource(R.string.weather_wind),
-                        value = wind,
-                        modifier = Modifier.weight(1f),
-                    )
+                    WeatherMeasures(feelsLike = feelsLike, wind = wind, weight = 1f)
                 }
             }
             if (weather.forecast.isNotEmpty()) {
@@ -397,6 +381,24 @@ private fun WeatherPrimaryContent(
             modifier = Modifier.size(dimens.iconStandard),
         )
     }
+}
+
+@Composable
+private fun RowScope.WeatherMeasures(
+    feelsLike: String,
+    wind: String,
+    weight: Float,
+) {
+    WeatherMeasure(
+        label = stringResource(R.string.weather_feels_like),
+        value = feelsLike,
+        modifier = Modifier.weight(weight),
+    )
+    WeatherMeasure(
+        label = stringResource(R.string.weather_wind),
+        value = wind,
+        modifier = Modifier.weight(weight),
+    )
 }
 
 @Composable
@@ -610,7 +612,7 @@ private fun PaginationFooter(
     when (state) {
         FeedContract.PaginationState.Idle -> Unit
         FeedContract.PaginationState.Loading ->
-            androidx.compose.foundation.layout.Box(
+            Box(
                 modifier = Modifier.fillMaxWidth().padding(ContentFeedTheme.dimens.space4),
                 contentAlignment = Alignment.Center,
             ) {
@@ -624,7 +626,7 @@ private fun PaginationFooter(
                 modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
             )
         FeedContract.PaginationState.End ->
-            androidx.compose.foundation.layout.Box(
+            Box(
                 modifier = Modifier.fillMaxWidth().padding(ContentFeedTheme.dimens.space4),
                 contentAlignment = Alignment.Center,
             ) {
