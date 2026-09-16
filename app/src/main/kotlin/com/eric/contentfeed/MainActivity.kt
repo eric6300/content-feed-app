@@ -6,44 +6,29 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.lifecycleScope
+import com.eric.contentfeed.navigation.ContentFeedApp
 import com.eric.contentfeed.ui.theme.ContentFeedTheme
+import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
+    private val foregroundCoordinator: ForegroundCoordinator by inject()
+
+    override fun onStart() {
+        super.onStart()
+        lifecycleScope.launch {
+            foregroundCoordinator.onStart()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             ContentFeedTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Surface(modifier = Modifier.padding(innerPadding)) {
-                        Greeting(name = "Content Feed")
-                    }
-                }
+                ContentFeedApp()
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(
-    name: String,
-    modifier: Modifier = Modifier,
-) {
-    Text(text = "Hello, $name!", modifier = modifier)
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun GreetingPreview() {
-    ContentFeedTheme {
-        Greeting(name = "Content Feed")
     }
 }
