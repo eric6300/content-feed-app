@@ -1,6 +1,7 @@
 package com.eric.contentfeed.feed.domain.usecase
 
 import com.eric.contentfeed.feed.domain.model.RemoteFailure
+import com.eric.contentfeed.feed.domain.model.SourceRefreshResult
 import com.eric.contentfeed.feed.repository.ArticleRepository
 import com.eric.contentfeed.feed.repository.RefreshOutcome
 import com.eric.contentfeed.feed.repository.WeatherRepository
@@ -29,10 +30,15 @@ class RefreshFeedUseCaseTest {
             coEvery { weatherRepository.refresh(any()) } returns RefreshOutcome.Failed(RemoteFailure.NetworkUnavailable)
             coEvery { articleRepository.refreshTop(any()) } returns RefreshOutcome.Succeeded
 
-            useCase(RefreshTrigger.Manual)
+            val result = useCase(RefreshTrigger.Manual)
 
             coVerify { weatherRepository.refresh(true) }
             coVerify { articleRepository.refreshTop(true) }
+            org.junit.Assert.assertEquals(
+                SourceRefreshResult.Failed(RemoteFailure.NetworkUnavailable),
+                result.weather,
+            )
+            org.junit.Assert.assertEquals(SourceRefreshResult.Succeeded, result.articles)
         }
 
     @Test

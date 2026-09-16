@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.eric.contentfeed.core.BuildConfig
+import com.eric.contentfeed.core.connectivity.AndroidConnectivityObserver
+import com.eric.contentfeed.core.connectivity.ConnectivityObserver
 import com.eric.contentfeed.core.database.ContentFeedDatabase
 import com.eric.contentfeed.core.freshness.DataStoreFreshnessGate
 import com.eric.contentfeed.core.freshness.EpochClock
@@ -44,6 +46,7 @@ val coreModule =
         single<DataStore<Preferences>> { androidContext().feedPreferencesDataStore }
         single<EpochClock> { EpochClock { System.currentTimeMillis() } }
         single<FreshnessGate> { DataStoreFreshnessGate(get(), get()) }
+        single<ConnectivityObserver> { AndroidConnectivityObserver(androidContext()) }
         single {
             OkHttpClient
                 .Builder()
