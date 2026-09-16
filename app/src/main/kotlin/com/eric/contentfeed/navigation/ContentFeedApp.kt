@@ -130,10 +130,7 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                                 scope.launch {
                                     snackbarHostState.showSnackbar("External links require a connection.")
                                 }
-                            is FeedContract.Effect.SourceRefreshFailed ->
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(refreshFailureMessage(effect.source))
-                                }
+                            is FeedContract.Effect.SourceRefreshFailed -> Unit
                         }
                     },
                 )

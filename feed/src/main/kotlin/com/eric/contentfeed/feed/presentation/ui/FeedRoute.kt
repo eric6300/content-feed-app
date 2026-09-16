@@ -35,7 +35,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.ImageLoader
 import com.eric.contentfeed.core.connectivity.ConnectivityStatus
+import com.eric.contentfeed.designsystem.component.ArticleRowSkeleton
 import com.eric.contentfeed.designsystem.component.EmptyPanel
 import com.eric.contentfeed.designsystem.component.KeepAction
 import com.eric.contentfeed.designsystem.component.LedgerDivider
@@ -117,26 +117,45 @@ fun FeedRoute(
             when (val articles = state.articles) {
                 FeedContract.ArticleStreamState.Loading ->
                     item(key = "articles-loading") {
-                        LoadingMessage("Loading articles…")
+                        repeat(3) { index ->
+                            ArticleRowSkeleton()
+                            if (index < 2) {
+                                LedgerDivider()
+                            }
+                        }
                     }
                 FeedContract.ArticleStreamState.Empty ->
                     item(key = "articles-empty") {
-                        EmptyMessage("No articles are available yet.")
+                        EmptyPanel(
+                            message = "No articles are available yet.",
+                            modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
+                        )
                     }
                 FeedContract.ArticleStreamState.OfflineEmpty ->
                     item(key = "articles-offline") {
-                        EmptyMessage("You are offline. Previously loaded articles will appear here when available.")
+                        EmptyPanel(
+                            message =
+                                "You are offline. Previously loaded articles will appear here when available.",
+                            modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
+                        )
                     }
                 is FeedContract.ArticleStreamState.Error ->
                     item(key = "articles-error") {
-                        ErrorMessage(articles.cause, onRetry = { viewModel.onEvent(FeedContract.Event.Refresh) })
+                        ScopedErrorPanel(
+                            message = errorMessage(articles.cause),
+                            retryLabel = "Retry",
+                            onRetry = { viewModel.onEvent(FeedContract.Event.Refresh) },
+                            modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
+                        )
                     }
                 is FeedContract.ArticleStreamState.Content -> {
                     articles.error?.let { failure ->
                         item(key = "articles-refresh-error") {
-                            ErrorMessage(
-                                failure,
+                            ScopedErrorPanel(
+                                message = errorMessage(failure),
+                                retryLabel = "Retry",
                                 onRetry = { viewModel.onEvent(FeedContract.Event.Refresh) },
+                                modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
                             )
                         }
                     }
@@ -498,50 +517,18 @@ private fun PaginationFooter(
                     ),
             )
         is FeedContract.PaginationState.RetryableError ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(ContentFeedTheme.dimens.space4),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Could not load more articles.", modifier = Modifier.weight(1f))
-                TextButton(onClick = onRetry) { Text("Retry") }
-            }
+            ScopedErrorPanel(
+                message = errorMessage(state.cause),
+                retryLabel = "Retry",
+                onRetry = onRetry,
+                modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
+            )
         FeedContract.PaginationState.End ->
             Text(
                 text = "You are all caught up.",
                 modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
                 style = MaterialTheme.typography.labelMedium,
             )
-    }
-}
-
-@Composable
-private fun LoadingMessage(message: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(ContentFeedTheme.dimens.space4),
-        horizontalArrangement = Arrangement.spacedBy(ContentFeedTheme.dimens.space3),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CircularProgressIndicator(modifier = Modifier.size(ContentFeedTheme.dimens.iconStandard))
-        Text(message)
-    }
-}
-
-@Composable
-private fun EmptyMessage(message: String) {
-    EmptyPanel(message = message, modifier = Modifier.padding(ContentFeedTheme.dimens.space4))
-}
-
-@Composable
-private fun ErrorMessage(
-    failure: RemoteFailure,
-    onRetry: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(ContentFeedTheme.dimens.space4),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(errorMessage(failure), modifier = Modifier.weight(1f))
-        TextButton(onClick = onRetry) { Text("Retry") }
     }
 }
 
