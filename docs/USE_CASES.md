@@ -247,13 +247,15 @@ Scenario: Undoing an unsave restores the article
 Scenario: Unsave is finalized once the undo window passes
   Given the user removed an article from the Saved list and did not tap undo
   When the undo window expires
-  Then the article's local data and locally-copied image are permanently deleted
+  Then the article's saved state and locally-copied image are deleted
+  And its cached text remains as ordinary cached content subject to the 7-day retention rule
 
-Scenario: A pending undo survives the app being closed and reopened
+Scenario: Reopening the app ends any pending undo window
   Given the user removed an article from the Saved list and the undo window has not yet expired
-  When the user closes and reopens the app before the window expires
-  Then the undo option is still available for the remaining time
-  And if the window has since expired while the app was closed, the article's local data and image are finalized as deleted on reopen instead of lingering indefinitely
+  When the user closes and reopens the app
+  Then the pending removal is finalized on reopen, regardless of the remaining time
+  And the article's cached text remains subject to the ordinary retention rule
+  And an undo that the user can no longer see does not pin the row outside retention
 
 Scenario: Multiple pending undos are independent
   Given the user has removed more than one article from the Saved list within the undo window
