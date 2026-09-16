@@ -2,6 +2,7 @@
 
 package com.eric.contentfeed.navigation
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import androidx.browser.customtabs.CustomTabsIntent
@@ -11,6 +12,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -23,6 +25,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -30,6 +34,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -75,10 +82,14 @@ private enum class RootTab {
     Saved,
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 fun ContentFeedApp(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val isExpandedWidth =
+        (context as? Activity)?.let { activity ->
+            calculateWindowSizeClass(activity).widthSizeClass == WindowWidthSizeClass.Expanded
+        } == true
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val readingBackStack = rememberNavBackStack(ContentFeedNavKey.Reading)
@@ -275,7 +286,7 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
             }
         },
         bottomBar = {
-            if (!isDetailScreen) {
+            if (!isDetailScreen && !isExpandedWidth) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = selectedTab == RootTab.Reading,
@@ -323,83 +334,123 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                     message = "Offline. Cached content remains available.",
                 )
             }
-            AnimatedContent(
-                targetState = selectedTab,
-                modifier = Modifier.weight(1f),
-                transitionSpec = {
-                    if (targetState == RootTab.Saved) {
-                        slideInHorizontally(
-                            initialOffsetX = { it },
-                            animationSpec = tween(280),
-                        ) togetherWith
-                            slideOutHorizontally(
-                                targetOffsetX = { -it },
+            Row(modifier = Modifier.weight(1f)) {
+                if (isExpandedWidth && !isDetailScreen) {
+                    NavigationRail {
+                        NavigationRailItem(
+                            selected = selectedTab == RootTab.Reading,
+                            onClick = {
+                                if (selectedTab == RootTab.Reading) {
+                                    while (readingBackStack.size > 1) readingBackStack.removeLastOrNull()
+                                } else {
+                                    selectedTab = RootTab.Reading
+                                }
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.AutoStories,
+                                    contentDescription = "Reading",
+                                )
+                            },
+                            label = { Text("Reading") },
+                        )
+                        NavigationRailItem(
+                            selected = selectedTab == RootTab.Saved,
+                            onClick = {
+                                if (selectedTab == RootTab.Saved) {
+                                    while (savedBackStack.size > 1) savedBackStack.removeLastOrNull()
+                                } else {
+                                    selectedTab = RootTab.Saved
+                                }
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.Bookmarks,
+                                    contentDescription = "Saved",
+                                )
+                            },
+                            label = { Text("Saved") },
+                        )
+                    }
+                }
+                AnimatedContent(
+                    targetState = selectedTab,
+                    modifier = Modifier.weight(1f),
+                    transitionSpec = {
+                        if (targetState == RootTab.Saved) {
+                            slideInHorizontally(
+                                initialOffsetX = { it },
                                 animationSpec = tween(280),
-                            )
-                    } else {
-                        slideInHorizontally(
-                            initialOffsetX = { -it },
-                            animationSpec = tween(280),
-                        ) togetherWith
-                            slideOutHorizontally(
-                                targetOffsetX = { it },
+                            ) togetherWith
+                                slideOutHorizontally(
+                                    targetOffsetX = { -it },
+                                    animationSpec = tween(280),
+                                )
+                        } else {
+                            slideInHorizontally(
+                                initialOffsetX = { -it },
                                 animationSpec = tween(280),
-                            )
-                    }
-                },
-                label = "root-tab-content-transition",
-            ) { tab ->
-                val tabBackStack =
-                    when (tab) {
-                        RootTab.Reading -> readingBackStack
-                        RootTab.Saved -> savedBackStack
-                    }
-                val tabEntries =
-                    when (tab) {
-                        RootTab.Reading -> readingEntries
-                        RootTab.Saved -> savedEntries
-                    }
-                NavDisplay(
-                    entries = tabEntries,
-                    modifier = Modifier.fillMaxSize(),
-                    onBack = {
-                        if (tabBackStack.size > 1) {
-                            tabBackStack.removeLastOrNull()
-                        } else if (tab == RootTab.Saved) {
-                            selectedTab = RootTab.Reading
+                            ) togetherWith
+                                slideOutHorizontally(
+                                    targetOffsetX = { it },
+                                    animationSpec = tween(280),
+                                )
                         }
                     },
-                    transitionSpec = {
-                        slideInHorizontally(
-                            initialOffsetX = { it },
-                            animationSpec = tween(280),
-                        ) togetherWith
-                            slideOutHorizontally(
-                                targetOffsetX = { -it },
+                    label = "root-tab-content-transition",
+                ) { tab ->
+                    val tabBackStack =
+                        when (tab) {
+                            RootTab.Reading -> readingBackStack
+                            RootTab.Saved -> savedBackStack
+                        }
+                    val tabEntries =
+                        when (tab) {
+                            RootTab.Reading -> readingEntries
+                            RootTab.Saved -> savedEntries
+                        }
+                    NavDisplay(
+                        entries = tabEntries,
+                        modifier = Modifier.fillMaxSize(),
+                        onBack = {
+                            if (tabBackStack.size > 1) {
+                                tabBackStack.removeLastOrNull()
+                            } else if (tab == RootTab.Saved) {
+                                selectedTab = RootTab.Reading
+                            }
+                        },
+                        transitionSpec = {
+                            slideInHorizontally(
+                                initialOffsetX = { it },
                                 animationSpec = tween(280),
-                            )
-                    },
-                    popTransitionSpec = {
-                        slideInHorizontally(
-                            initialOffsetX = { -it },
-                            animationSpec = tween(280),
-                        ) togetherWith
-                            slideOutHorizontally(
-                                targetOffsetX = { it },
+                            ) togetherWith
+                                slideOutHorizontally(
+                                    targetOffsetX = { -it },
+                                    animationSpec = tween(280),
+                                )
+                        },
+                        popTransitionSpec = {
+                            slideInHorizontally(
+                                initialOffsetX = { -it },
                                 animationSpec = tween(280),
-                            )
-                    },
-                    predictivePopTransitionSpec = {
-                        slideInHorizontally(
-                            initialOffsetX = { -it },
-                            animationSpec = tween(280),
-                        ) togetherWith
-                            slideOutHorizontally(
-                                targetOffsetX = { it },
+                            ) togetherWith
+                                slideOutHorizontally(
+                                    targetOffsetX = { it },
+                                    animationSpec = tween(280),
+                                )
+                        },
+                        predictivePopTransitionSpec = {
+                            slideInHorizontally(
+                                initialOffsetX = { -it },
                                 animationSpec = tween(280),
-                            )
-                    },
-                )
+                            ) togetherWith
+                                slideOutHorizontally(
+                                    targetOffsetX = { it },
+                                    animationSpec = tween(280),
+                                )
+                        },
+                    )
+                }
             }
         }
     }
