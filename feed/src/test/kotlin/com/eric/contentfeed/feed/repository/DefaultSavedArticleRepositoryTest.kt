@@ -100,6 +100,7 @@ class DefaultSavedArticleRepositoryTest {
             copyStarted.await()
             val unsaveJob = launch { repository.unsaveArticleImmediately(1) }
             runCurrent()
+            coVerify(exactly = 0) { localDataSource.unsaveArticleImmediately(1) }
             releaseCopy.complete(Unit)
             saveJob.join()
             unsaveJob.join()
@@ -130,9 +131,11 @@ class DefaultSavedArticleRepositoryTest {
 
             val saveJob = launch { repository.saveArticle(1) }
             copyStarted.await()
-            assertTrue(repository.removeFromSavedList(1))
+            val removeJob = launch { repository.removeFromSavedList(1) }
+            runCurrent()
             releaseCopy.complete(Unit)
             saveJob.join()
+            removeJob.join()
 
             coVerify(exactly = 1) { localDataSource.attachLocalImagePath(1, imageStore.copiedPath!!) }
             assertEquals(emptyList<Int>(), imageStore.deleteCalls)
@@ -201,6 +204,45 @@ class DefaultSavedArticleRepositoryTest {
 
             assertEquals(listOf(1, 2), imageStore.deleteCalls)
             coVerify(exactly = 1) { localDataSource.finalizeAllPendingUnsaves() }
+        }
+
+    @Test
+    fun explicitFinalizationDeletesOnlyTheSelectedRowsImage() =
+        runTest {
+            coEvery { localDataSource.finalizePendingUnsave(1) } returns cachedArticle(1)
+
+            repository.finalizeRemoval(1)
+
+            coVerify(exactly = 1) { localDataSource.finalizePendingUnsave(1) }
+            assertEquals(listOf(1), imageStore.deleteCalls)
+        }
+
+    @Test
+    fun finalizationWaitsForAnInFlightSaveBeforeDeletingItsImage() =
+        runTest {
+            val copyStarted = CompletableDeferred<Unit>()
+            val releaseCopy = CompletableDeferred<Unit>()
+            coEvery { localDataSource.saveArticle(1, NOW, null) } returns true
+            coEvery { localDataSource.attachLocalImagePath(1, imageStore.copiedPath!!) } returns true
+            coEvery { localDataSource.finalizePendingUnsave(1) } returns cachedArticle(1)
+            imageStore.onCopy = { _, _ ->
+                copyStarted.complete(Unit)
+                releaseCopy.await()
+                imageStore.copiedPath
+            }
+
+            val saveJob = launch { repository.saveArticle(1) }
+            copyStarted.await()
+            val finalizeJob = launch { repository.finalizeRemoval(1) }
+            runCurrent()
+            coVerify(exactly = 0) { localDataSource.finalizePendingUnsave(1) }
+
+            releaseCopy.complete(Unit)
+            saveJob.join()
+            finalizeJob.join()
+
+            coVerify(exactly = 1) { localDataSource.finalizePendingUnsave(1) }
+            assertEquals(listOf(1), imageStore.deleteCalls)
         }
 
     private fun cachedArticle(id: Int) =

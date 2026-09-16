@@ -16,22 +16,23 @@ internal class DefaultSavedArticleRepository(
     private val savedImageStore: SavedImageStore,
     private val clock: EpochClock,
 ) : SavedArticleRepository {
-    private val imageMutationMutex = Mutex()
+    private val savedMutationMutex = Mutex()
 
     override fun observeSavedArticles(): Flow<List<CachedArticle>> = localDataSource.observeSavedArticles()
 
     override fun observeArticle(articleId: Int): Flow<CachedArticle?> = localDataSource.observeArticle(articleId)
 
     override suspend fun saveArticle(articleId: Int) {
-        val saved =
-            localDataSource.saveArticle(
-                articleId = articleId,
-                savedAtEpochMillis = clock.nowEpochMillis(),
-                localImagePath = null,
-            )
-        if (!saved) return
+        savedMutationMutex.withLock {
+            val saved =
+                localDataSource.saveArticle(
+                    articleId = articleId,
+                    savedAtEpochMillis = clock.nowEpochMillis(),
+                    // The DAO preserves an existing local image when this is null.
+                    localImagePath = null,
+                )
+            if (!saved) return@withLock
 
-        imageMutationMutex.withLock {
             val imageUrl =
                 localDataSource
                     .observeArticle(articleId)
@@ -40,41 +41,56 @@ internal class DefaultSavedArticleRepository(
                     ?.imageUrl
             val copiedPath = savedImageStore.copyFromCache(articleId, imageUrl)
             if (copiedPath != null && !localDataSource.attachLocalImagePath(articleId, copiedPath)) {
-                // An immediate unsave may have cleared the row while the copy was in
-                // flight. Do not leave an unreferenced file behind.
+                // Keep the deterministic file store tidy if the guarded attach rejects
+                // a stale copy (for example, after an external state change).
                 savedImageStore.delete(articleId)
             }
         }
     }
 
     override suspend fun unsaveArticleImmediately(articleId: Int) {
-        localDataSource.unsaveArticleImmediately(articleId)
-        imageMutationMutex.withLock { savedImageStore.delete(articleId) }
+        savedMutationMutex.withLock {
+            localDataSource.unsaveArticleImmediately(articleId)
+            savedImageStore.delete(articleId)
+        }
     }
 
     override suspend fun removeFromSavedList(articleId: Int): Boolean =
-        localDataSource.markPendingUnsave(
-            articleId = articleId,
-            deadlineEpochMillis = clock.nowEpochMillis() + FeedPolicy.PERSISTED_UNDO_WINDOW.inWholeMilliseconds,
-        )
+        savedMutationMutex.withLock {
+            localDataSource.markPendingUnsave(
+                articleId = articleId,
+                deadlineEpochMillis =
+                    clock.nowEpochMillis() + FeedPolicy.PERSISTED_UNDO_WINDOW.inWholeMilliseconds,
+            )
+        }
 
     override suspend fun undoRemoval(articleId: Int): Boolean =
-        localDataSource.undoUnsave(articleId, clock.nowEpochMillis())
+        savedMutationMutex.withLock {
+            localDataSource.undoUnsave(articleId, clock.nowEpochMillis())
+        }
+
+    override suspend fun finalizeRemoval(articleId: Int) {
+        savedMutationMutex.withLock {
+            val finalized = localDataSource.finalizePendingUnsave(articleId)
+            if (finalized != null) savedImageStore.delete(finalized.article.id)
+        }
+    }
 
     override suspend fun finalizeExpiredRemovals() {
-        val finalized = localDataSource.finalizeExpiredPendingUnsaves(clock.nowEpochMillis())
-        deleteImages(finalized)
+        savedMutationMutex.withLock {
+            val finalized = localDataSource.finalizeExpiredPendingUnsaves(clock.nowEpochMillis())
+            deleteImagesLocked(finalized)
+        }
     }
 
     override suspend fun finalizeAllPendingRemovals() {
-        val finalized = localDataSource.finalizeAllPendingUnsaves()
-        deleteImages(finalized)
+        savedMutationMutex.withLock {
+            val finalized = localDataSource.finalizeAllPendingUnsaves()
+            deleteImagesLocked(finalized)
+        }
     }
 
-    private suspend fun deleteImages(articles: List<CachedArticle>) {
-        if (articles.isEmpty()) return
-        imageMutationMutex.withLock {
-            articles.forEach { savedImageStore.delete(it.article.id) }
-        }
+    private suspend fun deleteImagesLocked(articles: List<CachedArticle>) {
+        articles.forEach { savedImageStore.delete(it.article.id) }
     }
 }

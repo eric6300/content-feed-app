@@ -217,6 +217,49 @@ class ArticleDaoTest {
         }
 
     @Test
+    fun resavingWithNoNewImageKeepsTheExistingOfflineImage() =
+        runTest {
+            dao.upsertRemoteArticles(listOf(article(id = 1)))
+            dao.saveArticle(articleId = 1, savedAtEpochMillis = 20, localImagePath = "saved/1.img")
+            dao.markPendingUnsave(articleId = 1, deadlineEpochMillis = 100)
+
+            assertEquals(1, dao.saveArticle(articleId = 1, savedAtEpochMillis = 30, localImagePath = null))
+
+            val result = dao.observeArticle(1).first()!!
+            assertTrue(result.isSaved)
+            assertNull(result.pendingUnsaveAtEpochMillis)
+            assertEquals("saved/1.img", result.localImagePath)
+        }
+
+    @Test
+    fun explicitFinalizationClearsOnlyTheSelectedPendingRemovalRegardlessOfDeadline() =
+        runTest {
+            dao.upsertRemoteArticles(listOf(article(id = 1), article(id = 2)))
+            dao.saveArticle(articleId = 1, savedAtEpochMillis = 10, localImagePath = "saved/1.img")
+            dao.saveArticle(articleId = 2, savedAtEpochMillis = 20, localImagePath = "saved/2.img")
+            dao.markPendingUnsave(articleId = 1, deadlineEpochMillis = Long.MAX_VALUE)
+            dao.markPendingUnsave(articleId = 2, deadlineEpochMillis = 1)
+
+            val finalized = dao.finalizePendingUnsave(articleId = 1)
+
+            assertEquals(1, finalized!!.id)
+            assertEquals("saved/1.img", finalized.localImagePath)
+            assertTrue(!dao.observeArticle(1).first()!!.isSaved)
+            assertTrue(dao.observeArticle(2).first()!!.isSaved)
+            assertEquals(1L, dao.observeArticle(2).first()!!.pendingUnsaveAtEpochMillis)
+        }
+
+    @Test
+    fun explicitFinalizationIsANoOpWhenTheArticleIsNotPending() =
+        runTest {
+            dao.upsertRemoteArticles(listOf(article(id = 1)))
+            dao.saveArticle(articleId = 1, savedAtEpochMillis = 10, localImagePath = null)
+
+            assertNull(dao.finalizePendingUnsave(articleId = 1))
+            assertTrue(dao.observeArticle(1).first()!!.isSaved)
+        }
+
+    @Test
     fun attachLocalImagePathChangesOnlyTheImageAndPreservesSavedListOrder() =
         runTest {
             dao.upsertRemoteArticles(listOf(article(id = 1), article(id = 2)))

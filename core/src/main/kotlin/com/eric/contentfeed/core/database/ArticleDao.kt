@@ -77,12 +77,13 @@ abstract class ArticleDao {
         }
     }
 
+    /** Re-saving with a null image path keeps an already-copied offline image. */
     @Query(
         """
         UPDATE articles
         SET isSaved = 1,
             savedAtEpochMillis = :savedAtEpochMillis,
-            localImagePath = :localImagePath,
+            localImagePath = COALESCE(:localImagePath, localImagePath),
             pendingUnsaveAtEpochMillis = NULL
         WHERE id = :articleId
         """,
@@ -92,6 +93,35 @@ abstract class ArticleDao {
         savedAtEpochMillis: Long,
         localImagePath: String?,
     ): Int
+
+    @Query(
+        """
+        SELECT * FROM articles
+        WHERE id = :articleId AND pendingUnsaveAtEpochMillis IS NOT NULL
+        LIMIT 1
+        """,
+    )
+    protected abstract suspend fun selectPendingUnsave(articleId: Int): ArticleEntity?
+
+    @Query(
+        """
+        UPDATE articles
+        SET isSaved = 0,
+            savedAtEpochMillis = NULL,
+            localImagePath = NULL,
+            pendingUnsaveAtEpochMillis = NULL
+        WHERE id = :articleId AND pendingUnsaveAtEpochMillis IS NOT NULL
+        """,
+    )
+    protected abstract suspend fun clearPendingUnsave(articleId: Int): Int
+
+    /** Finalizes one pending removal regardless of its persisted deadline. */
+    @Transaction
+    open suspend fun finalizePendingUnsave(articleId: Int): ArticleEntity? {
+        val pending = selectPendingUnsave(articleId) ?: return null
+        clearPendingUnsave(articleId)
+        return pending
+    }
 
     /** Stores a copied image path without changing save ordering or pending state. */
     @Query(

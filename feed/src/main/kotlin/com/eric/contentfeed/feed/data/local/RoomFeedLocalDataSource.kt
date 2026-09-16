@@ -93,6 +93,9 @@ internal class RoomFeedLocalDataSource(
         localImagePath: String,
     ): Boolean = articleDao.attachLocalImagePath(articleId, localImagePath) > 0
 
+    override suspend fun finalizePendingUnsave(articleId: Int): CachedArticle? =
+        articleDao.finalizePendingUnsave(articleId)?.let(::toCachedArticle)
+
     override suspend fun unsaveArticleImmediately(articleId: Int) {
         articleDao.unsaveImmediate(articleId)
     }

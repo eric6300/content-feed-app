@@ -18,12 +18,12 @@ class FinalizePendingUnsavesUseCaseTest {
         }
 
     @Test
-    fun elapsedWindowFinalizesOnlyExpiredRemovals() =
+    fun dismissedWindowFinalizesOnlyTheDismissedArticle() =
         runTest {
             val repository = mockk<SavedArticleRepository>(relaxed = true)
 
-            FinalizePendingUnsavesUseCase(repository)(FinalizeTrigger.UndoWindowElapsed)
+            FinalizePendingUnsavesUseCase(repository)(FinalizeTrigger.UndoWindowElapsed(articleId = 42))
 
-            coVerify(exactly = 1) { repository.finalizeExpiredRemovals() }
+            coVerify(exactly = 1) { repository.finalizeRemoval(42) }
         }
 }

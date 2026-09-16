@@ -62,6 +62,9 @@ interface FeedLocalDataSource {
         localImagePath: String,
     ): Boolean
 
+    /** Finalizes one pending removal regardless of its persisted deadline. */
+    suspend fun finalizePendingUnsave(articleId: Int): CachedArticle?
+
     /** Feed/detail toggle: immediate, full removal — no undo for this path. */
     suspend fun unsaveArticleImmediately(articleId: Int)
 

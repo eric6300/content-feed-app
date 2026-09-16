@@ -17,6 +17,10 @@ interface SavedArticleRepository {
 
     suspend fun undoRemoval(articleId: Int): Boolean
 
+    /** Finalizes one Saved-list removal when its undo affordance is dismissed. */
+    suspend fun finalizeRemoval(articleId: Int)
+
+    /** Defensive sweep for pending rows whose persisted deadlines have elapsed. */
     suspend fun finalizeExpiredRemovals()
 
     suspend fun finalizeAllPendingRemovals()
