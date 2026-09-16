@@ -3,6 +3,7 @@
 package com.eric.contentfeed.designsystem.component
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,28 +31,36 @@ fun ScopedErrorPanel(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer,
     ) {
-        Row(
+        Column(
             modifier =
                 Modifier.padding(
                     horizontal = ContentFeedTheme.dimens.space4,
                     vertical = ContentFeedTheme.dimens.space3,
                 ),
-            horizontalArrangement = Arrangement.spacedBy(ContentFeedTheme.dimens.space3),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(ContentFeedTheme.dimens.space2),
         ) {
-            Icon(
-                imageVector = Icons.Outlined.ErrorOutline,
-                contentDescription = null,
-            )
-            Text(
-                text = message,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Button(onClick = onRetry) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(ContentFeedTheme.dimens.space3),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ErrorOutline,
+                    contentDescription = null,
+                )
+                Text(
+                    text = message,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            Button(
+                modifier = Modifier.align(Alignment.End),
+                onClick = onRetry,
+            ) {
                 Text(retryLabel)
             }
         }

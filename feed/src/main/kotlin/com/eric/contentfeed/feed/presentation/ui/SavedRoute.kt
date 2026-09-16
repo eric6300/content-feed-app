@@ -3,8 +3,10 @@
 package com.eric.contentfeed.feed.presentation.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,9 +21,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.ImageLoader
 import com.eric.contentfeed.designsystem.component.EmptyPanel
@@ -47,14 +51,22 @@ fun SavedRoute(
     Column(modifier = modifier.fillMaxSize()) {
         when (val content = state.content) {
             SavedContract.ContentState.Loading ->
-                CircularProgressIndicator(
-                    modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
-                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
             SavedContract.ContentState.Empty ->
-                EmptyPanel(
-                    message = stringResource(R.string.saved_empty),
-                    modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
-                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    EmptyPanel(
+                        message = stringResource(R.string.saved_empty),
+                        modifier = Modifier.fillMaxWidth().padding(ContentFeedTheme.dimens.space4),
+                    )
+                }
             is SavedContract.ContentState.Ready ->
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     itemsIndexed(content.items, key = { _, item -> item.id }) { index, article ->
@@ -77,7 +89,12 @@ fun SavedRoute(
                                 )
                             },
                             headlineContent = {
-                                Text(article.title, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    text = article.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                             },
                             supportingContent = {
                                 Text(

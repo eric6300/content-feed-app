@@ -27,8 +27,10 @@ fun EmptyPanel(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        tonalElevation = ContentFeedTheme.dimens.elevationTonal1,
     ) {
         Column(
             modifier = Modifier.padding(ContentFeedTheme.dimens.space6),
@@ -38,6 +40,7 @@ fun EmptyPanel(
             Icon(
                 imageVector = Icons.Outlined.Inbox,
                 contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
             )
             Text(
                 text = message,
