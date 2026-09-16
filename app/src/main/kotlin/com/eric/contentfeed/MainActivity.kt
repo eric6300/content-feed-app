@@ -6,8 +6,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
 import com.eric.contentfeed.navigation.ContentFeedApp
-import com.eric.contentfeed.ui.theme.ContentFeedTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

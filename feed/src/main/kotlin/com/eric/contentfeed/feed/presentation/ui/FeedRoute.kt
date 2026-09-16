@@ -11,19 +11,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.CloudQueue
+import androidx.compose.material.icons.outlined.Thunderstorm
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,16 +42,30 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.ImageLoader
 import com.eric.contentfeed.core.connectivity.ConnectivityStatus
+import com.eric.contentfeed.designsystem.component.ArticleRowSkeleton
+import com.eric.contentfeed.designsystem.component.EmptyPanel
+import com.eric.contentfeed.designsystem.component.KeepAction
+import com.eric.contentfeed.designsystem.component.LedgerDivider
+import com.eric.contentfeed.designsystem.component.ScopedErrorPanel
+import com.eric.contentfeed.designsystem.component.SourceMark
+import com.eric.contentfeed.designsystem.component.WeatherPanelSkeleton
+import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
+import com.eric.contentfeed.feed.R
 import com.eric.contentfeed.feed.domain.model.RemoteFailure
 import com.eric.contentfeed.feed.presentation.contract.FeedContract
+import com.eric.contentfeed.feed.presentation.format.formatPrice
+import com.eric.contentfeed.feed.presentation.format.formatPublishedDate
 import com.eric.contentfeed.feed.presentation.model.FeedItemUiModel
-import com.eric.contentfeed.feed.presentation.model.WeatherCondition
+import com.eric.contentfeed.feed.presentation.model.WeatherForecastUiModel
 import com.eric.contentfeed.feed.presentation.model.WeatherUiModel
 import com.eric.contentfeed.feed.presentation.viewmodel.FeedViewModel
+import com.eric.contentfeed.feed.presentation.weather.WeatherConditionIcon
+import com.eric.contentfeed.feed.presentation.weather.display
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.koin.androidx.compose.koinViewModel
@@ -81,9 +106,6 @@ fun FeedRoute(
             state = listState,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            item(key = "feed-header") {
-                FeedHeader()
-            }
             item(key = "weather") {
                 WeatherSection(
                     state = state.weather,
@@ -93,33 +115,51 @@ fun FeedRoute(
             when (val articles = state.articles) {
                 FeedContract.ArticleStreamState.Loading ->
                     item(key = "articles-loading") {
-                        LoadingMessage("Loading articles…")
+                        repeat(3) { index ->
+                            ArticleRowSkeleton()
+                            if (index < 2) {
+                                LedgerDivider()
+                            }
+                        }
                     }
                 FeedContract.ArticleStreamState.Empty ->
                     item(key = "articles-empty") {
-                        EmptyMessage("No articles are available yet.")
+                        EmptyPanel(
+                            message = stringResource(R.string.feed_empty_articles),
+                            modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
+                        )
                     }
                 FeedContract.ArticleStreamState.OfflineEmpty ->
                     item(key = "articles-offline") {
-                        EmptyMessage("You are offline. Previously loaded articles will appear here when available.")
+                        EmptyPanel(
+                            message = stringResource(R.string.feed_offline_articles),
+                            modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
+                        )
                     }
                 is FeedContract.ArticleStreamState.Error ->
                     item(key = "articles-error") {
-                        ErrorMessage(articles.cause, onRetry = { viewModel.onEvent(FeedContract.Event.Refresh) })
+                        ScopedErrorPanel(
+                            message = errorMessage(articles.cause),
+                            retryLabel = stringResource(R.string.action_retry),
+                            onRetry = { viewModel.onEvent(FeedContract.Event.Refresh) },
+                            modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
+                        )
                     }
                 is FeedContract.ArticleStreamState.Content -> {
                     articles.error?.let { failure ->
                         item(key = "articles-refresh-error") {
-                            ErrorMessage(
-                                failure,
+                            ScopedErrorPanel(
+                                message = errorMessage(failure),
+                                retryLabel = stringResource(R.string.action_retry),
                                 onRetry = { viewModel.onEvent(FeedContract.Event.Refresh) },
+                                modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
                             )
                         }
                     }
-                    items(
+                    itemsIndexed(
                         items = articles.items,
-                        key = { item -> item.key },
-                    ) { item ->
+                        key = { _, item -> item.key },
+                    ) { index, item ->
                         FeedItemRow(
                             item = item,
                             imageLoader = imageLoader,
@@ -134,6 +174,9 @@ fun FeedRoute(
                             },
                             onToggleSave = { viewModel.onEvent(FeedContract.Event.ToggleSave(it)) },
                         )
+                        if (index < articles.items.lastIndex) {
+                            LedgerDivider()
+                        }
                     }
                     item(key = "pagination") {
                         PaginationFooter(
@@ -165,35 +208,64 @@ private fun FeedContract.State.isRefreshing(): Boolean =
         }
 
 @Composable
-private fun FeedHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "Reading",
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
 private fun WeatherSection(
     state: FeedContract.WeatherState,
     onRetry: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Weather", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(8.dp))
-            when (state) {
-                FeedContract.WeatherState.Loading -> Text("Loading local forecast…")
-                FeedContract.WeatherState.Empty -> Text("Weather is unavailable.")
-                is FeedContract.WeatherState.Error -> ErrorMessage(state.cause, onRetry)
-                is FeedContract.WeatherState.Content -> {
+    when (state) {
+        FeedContract.WeatherState.Loading -> WeatherPanelSkeleton()
+        FeedContract.WeatherState.Empty ->
+            EmptyPanel(
+                message = stringResource(R.string.weather_unavailable),
+                modifier =
+                    Modifier.padding(
+                        horizontal = ContentFeedTheme.dimens.space4,
+                        vertical = ContentFeedTheme.dimens.space2,
+                    ),
+            )
+        is FeedContract.WeatherState.Error ->
+            ScopedErrorPanel(
+                message = errorMessage(state.cause),
+                retryLabel = stringResource(R.string.action_retry),
+                onRetry = onRetry,
+                modifier =
+                    Modifier.padding(
+                        horizontal = ContentFeedTheme.dimens.space4,
+                        vertical = ContentFeedTheme.dimens.space2,
+                    ),
+            )
+        is FeedContract.WeatherState.Content -> {
+            Card(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = ContentFeedTheme.dimens.space4,
+                            vertical = ContentFeedTheme.dimens.space2,
+                        ),
+                shape = MaterialTheme.shapes.large,
+                colors =
+                    CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation =
+                    CardDefaults.cardElevation(
+                        defaultElevation = ContentFeedTheme.dimens.elevationTonal1,
+                    ),
+            ) {
+                Column(modifier = Modifier.padding(ContentFeedTheme.dimens.space4)) {
+                    Text(
+                        stringResource(R.string.weather_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Spacer(modifier = Modifier.height(ContentFeedTheme.dimens.space3))
                     WeatherContent(state.value)
-                    state.error?.let { ErrorMessage(it, onRetry) }
+                    state.error?.let { failure ->
+                        ScopedErrorPanel(
+                            message = errorMessage(failure),
+                            retryLabel = stringResource(R.string.action_retry),
+                            onRetry = onRetry,
+                            modifier = Modifier.padding(top = ContentFeedTheme.dimens.space3),
+                        )
+                    }
                 }
             }
         }
@@ -202,12 +274,129 @@ private fun WeatherSection(
 
 @Composable
 private fun WeatherContent(weather: WeatherUiModel) {
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(weather.temperatureCelsius?.let { "${it.toInt()}°C" } ?: "—")
-        Text(weather.condition.label())
-        weather.windSpeedKmh?.let { Text("Wind ${it.toInt()} km/h") }
+    val dimens = ContentFeedTheme.dimens
+    val conditionDisplay = weather.condition.display()
+    val conditionLabel = stringResource(conditionDisplay.labelRes)
+    val unavailableValue = stringResource(R.string.value_unavailable)
+    val temperatureLabel =
+        weather.temperatureCelsius?.let {
+            stringResource(R.string.weather_temperature_celsius, it.toInt())
+        } ?: unavailableValue
+    Column(verticalArrangement = Arrangement.spacedBy(dimens.space3)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(dimens.space3),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = temperatureLabel,
+                style = MaterialTheme.typography.displaySmall,
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(conditionLabel)
+                Text(
+                    text = stringResource(R.string.weather_local_conditions),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(
+                imageVector = conditionDisplay.icon.imageVector(),
+                contentDescription = conditionLabel,
+                modifier = Modifier.size(dimens.iconStandard),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(dimens.space3),
+        ) {
+            WeatherMeasure(
+                label = stringResource(R.string.weather_feels_like),
+                value =
+                    weather.apparentTemperatureCelsius?.let {
+                        stringResource(R.string.weather_temperature_celsius, it.toInt())
+                    } ?: unavailableValue,
+                modifier = Modifier.weight(1f),
+            )
+            WeatherMeasure(
+                label = stringResource(R.string.weather_wind),
+                value =
+                    weather.windSpeedKmh?.let {
+                        stringResource(R.string.weather_wind_speed, it.toInt())
+                    } ?: unavailableValue,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        if (weather.forecast.isNotEmpty()) {
+            Text(
+                stringResource(R.string.weather_forecast),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(dimens.space2)) {
+                items(weather.forecast) { forecast ->
+                    ForecastItem(forecast)
+                }
+            }
+        }
     }
 }
+
+@Composable
+private fun WeatherMeasure(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(text = value, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+private fun ForecastItem(forecast: WeatherForecastUiModel) {
+    val dimens = ContentFeedTheme.dimens
+    val conditionLabel = stringResource(forecast.condition.display().labelRes)
+    val unavailableValue = stringResource(R.string.value_unavailable)
+    val maximum = forecast.temperatureMaxCelsius?.toInt()?.toString() ?: unavailableValue
+    val minimum = forecast.temperatureMinCelsius?.toInt()?.toString() ?: unavailableValue
+    Column(
+        modifier = Modifier.width(dimens.weatherForecastItemWidth),
+        verticalArrangement = Arrangement.spacedBy(dimens.space1),
+    ) {
+        Text(forecast.date, style = MaterialTheme.typography.labelMedium)
+        Text(
+            text = conditionLabel,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            text = stringResource(R.string.weather_temperature_range, maximum, minimum),
+            style = MaterialTheme.typography.labelLarge,
+        )
+        forecast.precipitationProbability?.let { probability ->
+            Text(
+                stringResource(R.string.weather_rain_probability, probability),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
+}
+
+private fun WeatherConditionIcon.imageVector() =
+    when (this) {
+        WeatherConditionIcon.Clear -> Icons.Outlined.WbSunny
+        WeatherConditionIcon.PartlyCloudy -> Icons.Outlined.CloudQueue
+        WeatherConditionIcon.Cloud -> Icons.Outlined.Cloud
+        WeatherConditionIcon.Fog -> Icons.Outlined.Visibility
+        WeatherConditionIcon.Rain -> Icons.Outlined.WaterDrop
+        WeatherConditionIcon.Snow -> Icons.Outlined.AcUnit
+        WeatherConditionIcon.Thunderstorm -> Icons.Outlined.Thunderstorm
+        WeatherConditionIcon.Unknown -> Icons.AutoMirrored.Outlined.HelpOutline
+    }
 
 @Composable
 private fun FeedItemRow(
@@ -219,60 +408,114 @@ private fun FeedItemRow(
     onOpenExternalLink: (String) -> Unit,
     onToggleSave: (Int) -> Unit,
 ) {
+    val dimens = ContentFeedTheme.dimens
+    val dateUnknownLabel = stringResource(R.string.date_unknown)
     when (item) {
         is FeedItemUiModel.Article ->
             ListItem(
                 modifier = Modifier.clickable { onOpenArticle(item.value.id) },
+                overlineContent = {
+                    SourceMark(source = item.value.source)
+                },
                 leadingContent = {
                     FeedImage(
                         model = item.value.localImagePath?.let(::File) ?: item.value.imageUrl,
                         imageLoader = imageLoader,
                         contentDescription = item.value.title,
                         diskCacheKey = item.value.imageUrl.takeIf { item.value.localImagePath == null },
-                        modifier = Modifier.size(96.dp, 72.dp),
+                        modifier = Modifier.size(dimens.thumbnailArticle).clip(MaterialTheme.shapes.medium),
                     )
                 },
-                headlineContent = { Text(item.value.title) },
+                headlineContent = {
+                    Text(item.value.title, style = MaterialTheme.typography.titleMedium)
+                },
                 supportingContent = {
-                    Text(item.value.summary ?: item.value.source)
+                    Column(verticalArrangement = Arrangement.spacedBy(dimens.space1)) {
+                        Text(
+                            text =
+                                item.value.summary
+                                    ?: stringResource(R.string.article_summary_unavailable),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            text =
+                                formatPublishedDate(
+                                    item.value.publishedAtEpochMillis,
+                                    unknownLabel = dateUnknownLabel,
+                                ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 },
                 trailingContent = {
-                    IconButton(onClick = { onToggleSave(item.value.id) }) {
-                        Text(if (item.value.isSaved) "✓" else "+")
-                    }
+                    KeepAction(
+                        isKept = item.value.isSaved,
+                        contentDescription =
+                            stringResource(
+                                if (item.value.isSaved) {
+                                    R.string.article_remove_from_saved
+                                } else {
+                                    R.string.article_save
+                                },
+                            ),
+                        onClick = { onToggleSave(item.value.id) },
+                    )
                 },
             )
         is FeedItemUiModel.ServiceCard ->
-            Card(
-                onClick = {
-                    onOpenServiceCard(item.value.poolIndex, item.value.assignmentSequence)
-                },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onOpenServiceCard(item.value.poolIndex, item.value.assignmentSequence)
+                        }.padding(
+                            horizontal = dimens.space4,
+                            vertical = dimens.space3,
+                        ),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    FeedImage(
-                        model = item.value.imageAssetPath.toAssetUri(),
-                        imageLoader = imageLoader,
-                        contentDescription = item.value.title,
-                        modifier = Modifier.fillMaxWidth().height(144.dp),
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(item.value.title, style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(item.value.blurb)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        enabled = canOpenExternalLinks,
-                        onClick = {
-                            onOpenExternalLink(item.value.targetUrl)
-                        },
-                    ) {
-                        Text("View service")
+                androidx.compose.material3.Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    shape = MaterialTheme.shapes.large,
+                    tonalElevation = dimens.elevationTonal1,
+                ) {
+                    Column(modifier = Modifier.padding(dimens.space4)) {
+                        FeedImage(
+                            model = item.value.imageAssetPath.toAssetUri(),
+                            imageLoader = imageLoader,
+                            contentDescription = item.value.title,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(dimens.serviceImageHeight)
+                                    .clip(MaterialTheme.shapes.medium),
+                        )
+                        Spacer(modifier = Modifier.height(dimens.space3))
+                        Text(item.value.title, style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(dimens.space1))
+                        Text(item.value.blurb, style = MaterialTheme.typography.bodyLarge)
+                        item.value.price?.let { price ->
+                            Spacer(modifier = Modifier.height(dimens.space2))
+                            Text(
+                                text =
+                                    stringResource(
+                                        R.string.service_price,
+                                        formatPrice(price),
+                                    ),
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(dimens.space3))
+                        Button(
+                            enabled = canOpenExternalLinks,
+                            onClick = { onOpenExternalLink(item.value.targetUrl) },
+                        ) { Text(stringResource(R.string.service_view)) }
                     }
                 }
             }
     }
-    HorizontalDivider()
 }
 
 @Composable
@@ -284,53 +527,24 @@ private fun PaginationFooter(
         FeedContract.PaginationState.Idle -> Unit
         FeedContract.PaginationState.Loading ->
             CircularProgressIndicator(
-                modifier = Modifier.padding(16.dp).size(24.dp),
+                modifier =
+                    Modifier.padding(ContentFeedTheme.dimens.space4).size(
+                        ContentFeedTheme.dimens.iconStandard,
+                    ),
             )
         is FeedContract.PaginationState.RetryableError ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Could not load more articles.", modifier = Modifier.weight(1f))
-                TextButton(onClick = onRetry) { Text("Retry") }
-            }
+            ScopedErrorPanel(
+                message = errorMessage(state.cause),
+                retryLabel = stringResource(R.string.action_retry),
+                onRetry = onRetry,
+                modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
+            )
         FeedContract.PaginationState.End ->
             Text(
-                text = "You are all caught up.",
-                modifier = Modifier.padding(16.dp),
+                text = stringResource(R.string.pagination_caught_up),
+                modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
                 style = MaterialTheme.typography.labelMedium,
             )
-    }
-}
-
-@Composable
-private fun LoadingMessage(message: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-        Text(message)
-    }
-}
-
-@Composable
-private fun EmptyMessage(message: String) {
-    Text(message, modifier = Modifier.padding(16.dp))
-}
-
-@Composable
-private fun ErrorMessage(
-    failure: RemoteFailure,
-    onRetry: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(errorMessage(failure), modifier = Modifier.weight(1f))
-        TextButton(onClick = onRetry) { Text("Retry") }
     }
 }
 
@@ -342,22 +556,10 @@ private val FeedItemUiModel.key: String
                 "service-${value.poolIndex}-${value.assignmentSequence}"
         }
 
-private fun WeatherCondition.label(): String =
-    when (this) {
-        WeatherCondition.ClearSky -> "Clear"
-        WeatherCondition.PartlyCloudy -> "Partly cloudy"
-        WeatherCondition.Overcast -> "Overcast"
-        WeatherCondition.Fog -> "Fog"
-        WeatherCondition.Drizzle -> "Drizzle"
-        WeatherCondition.Rain -> "Rain"
-        WeatherCondition.Snow -> "Snow"
-        WeatherCondition.Thunderstorm -> "Thunderstorm"
-        WeatherCondition.Unknown -> "Unknown"
-    }
-
+@Composable
 private fun errorMessage(failure: RemoteFailure): String =
     when (failure) {
-        RemoteFailure.NetworkUnavailable -> "Network unavailable."
-        is RemoteFailure.Http -> "The service returned HTTP ${failure.code}."
-        RemoteFailure.Unknown -> "Something went wrong."
+        RemoteFailure.NetworkUnavailable -> stringResource(R.string.error_network_unavailable)
+        is RemoteFailure.Http -> stringResource(R.string.error_http, failure.code)
+        RemoteFailure.Unknown -> stringResource(R.string.error_unknown)
     }

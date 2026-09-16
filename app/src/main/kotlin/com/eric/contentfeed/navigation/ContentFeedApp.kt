@@ -2,6 +2,7 @@
 
 package com.eric.contentfeed.navigation
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import androidx.browser.customtabs.CustomTabsIntent
@@ -11,21 +12,31 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,7 +47,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -48,15 +59,20 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.eric.contentfeed.ForegroundCoordinator
 import com.eric.contentfeed.ForegroundEffect
+import com.eric.contentfeed.R
 import com.eric.contentfeed.core.connectivity.ConnectivityStatus
+import com.eric.contentfeed.designsystem.component.StatusStrip
+import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
 import com.eric.contentfeed.feed.presentation.contract.ConnectivityContract
 import com.eric.contentfeed.feed.presentation.contract.DetailContract
 import com.eric.contentfeed.feed.presentation.contract.FeedContract
+import com.eric.contentfeed.feed.presentation.contract.SavedContract
 import com.eric.contentfeed.feed.presentation.model.DetailTarget
 import com.eric.contentfeed.feed.presentation.ui.DetailRoute
 import com.eric.contentfeed.feed.presentation.ui.FeedRoute
 import com.eric.contentfeed.feed.presentation.ui.SavedRoute
 import com.eric.contentfeed.feed.presentation.viewmodel.ConnectivityViewModel
+import com.eric.contentfeed.feed.presentation.viewmodel.SavedViewModel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -68,10 +84,26 @@ private enum class RootTab {
     Saved,
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 fun ContentFeedApp(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val readingLabel = stringResource(R.string.nav_reading)
+    val savedLabel = stringResource(R.string.nav_saved)
+    val backOnlineMessage = stringResource(R.string.snackbar_back_online)
+    val removedFromSavedMessage = stringResource(R.string.snackbar_removed_from_saved)
+    val undoLabel = stringResource(R.string.action_undo)
+    val alreadyRemovedMessage = stringResource(R.string.snackbar_already_removed)
+    val externalLinkRequiresConnectionMessage =
+        stringResource(R.string.snackbar_external_link_requires_connection)
+    val noBrowserAvailableMessage = stringResource(R.string.snackbar_no_browser_available)
+    val articlesRefreshFailedMessage =
+        stringResource(R.string.snackbar_articles_refresh_failed)
+    val weatherRefreshFailedMessage = stringResource(R.string.snackbar_weather_refresh_failed)
+    val isExpandedWidth =
+        (context as? Activity)?.let { activity ->
+            calculateWindowSizeClass(activity).widthSizeClass == WindowWidthSizeClass.Expanded
+        } == true
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val readingBackStack = rememberNavBackStack(ContentFeedNavKey.Reading)
@@ -85,19 +117,56 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
     val connectivityViewModel: ConnectivityViewModel = koinViewModel()
     val connectivityState by connectivityViewModel.state.collectAsStateWithLifecycle()
     val foregroundCoordinator: ForegroundCoordinator = koinInject()
+    val savedViewModel: SavedViewModel = koinViewModel()
 
     LaunchedEffect(connectivityViewModel) {
         connectivityViewModel.effects.collectLatest { effect ->
             when (effect) {
                 ConnectivityContract.Effect.BackOnline ->
-                    snackbarHostState.showSnackbar("Back online")
+                    snackbarHostState.showSnackbar(backOnlineMessage)
             }
         }
     }
 
     LaunchedEffect(foregroundCoordinator) {
         foregroundCoordinator.effects.collect { effect ->
-            snackbarHostState.showSnackbar(effect.message())
+            snackbarHostState.showSnackbar(
+                effect.message(
+                    articlesMessage = articlesRefreshFailedMessage,
+                    weatherMessage = weatherRefreshFailedMessage,
+                ),
+            )
+        }
+    }
+
+    LaunchedEffect(savedViewModel) {
+        savedViewModel.effects.collect { effect ->
+            when (effect) {
+                is SavedContract.Effect.NavigateToArticle ->
+                    savedBackStack.add(ContentFeedNavKey.ArticleDetail(effect.articleId))
+                is SavedContract.Effect.ShowUndo -> {
+                    val result =
+                        snackbarHostState.showSnackbar(
+                            message = removedFromSavedMessage,
+                            actionLabel = undoLabel,
+                        )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        savedViewModel.onEvent(
+                            SavedContract.Event.UndoRemoval(
+                                effect.articleId,
+                            ),
+                        )
+                    } else {
+                        savedViewModel.onEvent(
+                            SavedContract.Event.UndoWindowElapsed(
+                                effect.articleId,
+                            ),
+                        )
+                    }
+                }
+                SavedContract.Effect.UndoUnavailable ->
+                    snackbarHostState.showSnackbar(alreadyRemovedMessage)
+            }
         }
     }
 
@@ -119,34 +188,31 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                                     ),
                                 )
                             is FeedContract.Effect.OpenExternalUrl ->
-                                context.openExternalUrl(effect.url) { message ->
+                                context.openExternalUrl(effect.url, noBrowserAvailableMessage) { message ->
                                     scope.launch { snackbarHostState.showSnackbar(message) }
                                 }
                             FeedContract.Effect.ExternalLinkUnavailable ->
                                 scope.launch {
-                                    snackbarHostState.showSnackbar("External links require a connection.")
+                                    snackbarHostState.showSnackbar(externalLinkRequiresConnectionMessage)
                                 }
-                            is FeedContract.Effect.SourceRefreshFailed ->
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(refreshFailureMessage(effect.source))
-                                }
+                            is FeedContract.Effect.SourceRefreshFailed -> Unit
                         }
                     },
                 )
             }
             entry<ContentFeedNavKey.Saved> {
-                SavedRoute(
-                    onNavigateToArticle = { articleId ->
-                        savedBackStack.add(ContentFeedNavKey.ArticleDetail(articleId))
-                    },
-                    snackbarHostState = snackbarHostState,
-                )
+                SavedRoute(viewModel = savedViewModel)
             }
             entry<ContentFeedNavKey.ArticleDetail> { key ->
                 DetailRoute(
                     target = DetailTarget.Article(key.articleId),
                     onEffect = { effect ->
-                        handleDetailEffect(effect, context) { message ->
+                        handleDetailEffect(
+                            effect = effect,
+                            context = context,
+                            externalLinkMessage = externalLinkRequiresConnectionMessage,
+                            noBrowserMessage = noBrowserAvailableMessage,
+                        ) { message ->
                             scope.launch { snackbarHostState.showSnackbar(message) }
                         }
                     },
@@ -160,7 +226,12 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                             assignmentSequence = key.assignmentSequence,
                         ),
                     onEffect = { effect ->
-                        handleDetailEffect(effect, context) { message ->
+                        handleDetailEffect(
+                            effect = effect,
+                            context = context,
+                            externalLinkMessage = externalLinkRequiresConnectionMessage,
+                            noBrowserMessage = noBrowserAvailableMessage,
+                        ) { message ->
                             scope.launch { snackbarHostState.showSnackbar(message) }
                         }
                     },
@@ -197,24 +268,54 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
 
     Scaffold(
         modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                val isSuccess = data.visuals.message == backOnlineMessage
+                Snackbar(
+                    snackbarData = data,
+                    containerColor =
+                        if (isSuccess) {
+                            ContentFeedTheme.extendedColors.success
+                        } else {
+                            MaterialTheme.colorScheme.inverseSurface
+                        },
+                    contentColor =
+                        if (isSuccess) {
+                            ContentFeedTheme.extendedColors.onSuccess
+                        } else {
+                            MaterialTheme.colorScheme.inverseOnSurface
+                        },
+                )
+            }
+        },
         topBar = {
             if (isDetailScreen) {
                 TopAppBar(
-                    title = { Text("Detail") },
+                    title = { Text(stringResource(activeBackStack.detailTitleRes())) },
                     navigationIcon = {
                         IconButton(onClick = { activeBackStack.removeLastOrNull() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.action_back),
                             )
                         }
+                    },
+                )
+            } else {
+                TopAppBar(
+                    title = {
+                        Text(
+                            when (selectedTab) {
+                                RootTab.Reading -> readingLabel
+                                RootTab.Saved -> savedLabel
+                            },
+                        )
                     },
                 )
             }
         },
         bottomBar = {
-            if (!isDetailScreen) {
+            if (!isDetailScreen && !isExpandedWidth) {
                 NavigationBar {
                     NavigationBarItem(
                         selected = selectedTab == RootTab.Reading,
@@ -225,8 +326,13 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                                 selectedTab = RootTab.Reading
                             }
                         },
-                        icon = { Text("R") },
-                        label = { Text("Reading") },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.AutoStories,
+                                contentDescription = readingLabel,
+                            )
+                        },
+                        label = { Text(readingLabel) },
                     )
                     NavigationBarItem(
                         selected = selectedTab == RootTab.Saved,
@@ -237,8 +343,13 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                                 selectedTab = RootTab.Saved
                             }
                         },
-                        icon = { Text("S") },
-                        label = { Text("Saved") },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Bookmarks,
+                                contentDescription = savedLabel,
+                            )
+                        },
+                        label = { Text(savedLabel) },
                     )
                 }
             }
@@ -248,130 +359,174 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxSize().padding(innerPadding),
         ) {
             if (connectivityState.status == ConnectivityStatus.Offline) {
-                Text(
-                    text = "Offline",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(8.dp),
+                StatusStrip(
+                    message = stringResource(R.string.status_offline_cached),
                 )
             }
-            AnimatedContent(
-                targetState = selectedTab,
-                modifier = Modifier.weight(1f),
-                transitionSpec = {
-                    if (targetState == RootTab.Saved) {
-                        slideInHorizontally(
-                            initialOffsetX = { it },
-                            animationSpec = tween(280),
-                        ) togetherWith
-                            slideOutHorizontally(
-                                targetOffsetX = { -it },
+            Row(modifier = Modifier.weight(1f)) {
+                if (isExpandedWidth && !isDetailScreen) {
+                    NavigationRail {
+                        NavigationRailItem(
+                            selected = selectedTab == RootTab.Reading,
+                            onClick = {
+                                if (selectedTab == RootTab.Reading) {
+                                    while (readingBackStack.size > 1) readingBackStack.removeLastOrNull()
+                                } else {
+                                    selectedTab = RootTab.Reading
+                                }
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.AutoStories,
+                                    contentDescription = readingLabel,
+                                )
+                            },
+                            label = { Text(readingLabel) },
+                        )
+                        NavigationRailItem(
+                            selected = selectedTab == RootTab.Saved,
+                            onClick = {
+                                if (selectedTab == RootTab.Saved) {
+                                    while (savedBackStack.size > 1) savedBackStack.removeLastOrNull()
+                                } else {
+                                    selectedTab = RootTab.Saved
+                                }
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.Bookmarks,
+                                    contentDescription = savedLabel,
+                                )
+                            },
+                            label = { Text(savedLabel) },
+                        )
+                    }
+                }
+                AnimatedContent(
+                    targetState = selectedTab,
+                    modifier = Modifier.weight(1f),
+                    transitionSpec = {
+                        if (targetState == RootTab.Saved) {
+                            slideInHorizontally(
+                                initialOffsetX = { it },
                                 animationSpec = tween(280),
-                            )
-                    } else {
-                        slideInHorizontally(
-                            initialOffsetX = { -it },
-                            animationSpec = tween(280),
-                        ) togetherWith
-                            slideOutHorizontally(
-                                targetOffsetX = { it },
+                            ) togetherWith
+                                slideOutHorizontally(
+                                    targetOffsetX = { -it },
+                                    animationSpec = tween(280),
+                                )
+                        } else {
+                            slideInHorizontally(
+                                initialOffsetX = { -it },
                                 animationSpec = tween(280),
-                            )
-                    }
-                },
-                label = "root-tab-content-transition",
-            ) { tab ->
-                val tabBackStack =
-                    when (tab) {
-                        RootTab.Reading -> readingBackStack
-                        RootTab.Saved -> savedBackStack
-                    }
-                val tabEntries =
-                    when (tab) {
-                        RootTab.Reading -> readingEntries
-                        RootTab.Saved -> savedEntries
-                    }
-                NavDisplay(
-                    entries = tabEntries,
-                    modifier = Modifier.fillMaxSize(),
-                    onBack = {
-                        if (tabBackStack.size > 1) {
-                            tabBackStack.removeLastOrNull()
-                        } else if (tab == RootTab.Saved) {
-                            selectedTab = RootTab.Reading
+                            ) togetherWith
+                                slideOutHorizontally(
+                                    targetOffsetX = { it },
+                                    animationSpec = tween(280),
+                                )
                         }
                     },
-                    transitionSpec = {
-                        slideInHorizontally(
-                            initialOffsetX = { it },
-                            animationSpec = tween(280),
-                        ) togetherWith
-                            slideOutHorizontally(
-                                targetOffsetX = { -it },
+                    label = "root-tab-content-transition",
+                ) { tab ->
+                    val tabBackStack =
+                        when (tab) {
+                            RootTab.Reading -> readingBackStack
+                            RootTab.Saved -> savedBackStack
+                        }
+                    val tabEntries =
+                        when (tab) {
+                            RootTab.Reading -> readingEntries
+                            RootTab.Saved -> savedEntries
+                        }
+                    NavDisplay(
+                        entries = tabEntries,
+                        modifier = Modifier.fillMaxSize(),
+                        onBack = {
+                            if (tabBackStack.size > 1) {
+                                tabBackStack.removeLastOrNull()
+                            } else if (tab == RootTab.Saved) {
+                                selectedTab = RootTab.Reading
+                            }
+                        },
+                        transitionSpec = {
+                            slideInHorizontally(
+                                initialOffsetX = { it },
                                 animationSpec = tween(280),
-                            )
-                    },
-                    popTransitionSpec = {
-                        slideInHorizontally(
-                            initialOffsetX = { -it },
-                            animationSpec = tween(280),
-                        ) togetherWith
-                            slideOutHorizontally(
-                                targetOffsetX = { it },
+                            ) togetherWith
+                                slideOutHorizontally(
+                                    targetOffsetX = { -it },
+                                    animationSpec = tween(280),
+                                )
+                        },
+                        popTransitionSpec = {
+                            slideInHorizontally(
+                                initialOffsetX = { -it },
                                 animationSpec = tween(280),
-                            )
-                    },
-                    predictivePopTransitionSpec = {
-                        slideInHorizontally(
-                            initialOffsetX = { -it },
-                            animationSpec = tween(280),
-                        ) togetherWith
-                            slideOutHorizontally(
-                                targetOffsetX = { it },
+                            ) togetherWith
+                                slideOutHorizontally(
+                                    targetOffsetX = { it },
+                                    animationSpec = tween(280),
+                                )
+                        },
+                        predictivePopTransitionSpec = {
+                            slideInHorizontally(
+                                initialOffsetX = { -it },
                                 animationSpec = tween(280),
-                            )
-                    },
-                )
+                            ) togetherWith
+                                slideOutHorizontally(
+                                    targetOffsetX = { it },
+                                    animationSpec = tween(280),
+                                )
+                        },
+                    )
+                }
             }
         }
     }
 }
 
-private fun ForegroundEffect.message(): String =
-    when (this) {
-        is ForegroundEffect.SourceRefreshFailed ->
-            refreshFailureMessage(
-                when (source) {
-                    ForegroundEffect.Source.Articles -> FeedContract.Source.Articles
-                    ForegroundEffect.Source.Weather -> FeedContract.Source.Weather
-                },
-            )
+private fun List<NavKey>.detailTitleRes(): Int =
+    when (lastOrNull()) {
+        is ContentFeedNavKey.ArticleDetail -> R.string.screen_title_article
+        is ContentFeedNavKey.ServiceCardDetail -> R.string.screen_title_service
+        else -> R.string.app_name
     }
 
-private fun refreshFailureMessage(source: FeedContract.Source): String =
-    when (source) {
-        FeedContract.Source.Articles -> "Articles could not refresh. Cached content remains available."
-        FeedContract.Source.Weather -> "Weather could not refresh. Cached content remains available."
+private fun ForegroundEffect.message(
+    articlesMessage: String,
+    weatherMessage: String,
+): String =
+    when (this) {
+        is ForegroundEffect.SourceRefreshFailed ->
+            when (source) {
+                ForegroundEffect.Source.Articles -> articlesMessage
+                ForegroundEffect.Source.Weather -> weatherMessage
+            }
     }
 
 private fun handleDetailEffect(
     effect: DetailContract.Effect,
     context: Context,
+    externalLinkMessage: String,
+    noBrowserMessage: String,
     onMessage: (String) -> Unit,
 ) {
     when (effect) {
-        is DetailContract.Effect.OpenExternalUrl -> context.openExternalUrl(effect.url, onMessage)
+        is DetailContract.Effect.OpenExternalUrl ->
+            context.openExternalUrl(effect.url, noBrowserMessage, onMessage)
         DetailContract.Effect.ExternalLinkUnavailable ->
-            onMessage("External links require a connection.")
+            onMessage(externalLinkMessage)
     }
 }
 
 private fun Context.openExternalUrl(
     url: String,
+    noBrowserMessage: String,
     onUnavailable: (String) -> Unit,
 ) {
     try {
         CustomTabsIntent.Builder().build().launchUrl(this, url.toUri())
     } catch (_: ActivityNotFoundException) {
-        onUnavailable("No browser is available for this link.")
+        onUnavailable(noBrowserMessage)
     }
 }

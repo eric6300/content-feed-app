@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.ContentFeed" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.ContentFeed" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/signal_ground</item>
     </style>
 </resources>

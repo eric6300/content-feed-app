@@ -6,91 +6,107 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.ImageLoader
+import com.eric.contentfeed.designsystem.component.EmptyPanel
+import com.eric.contentfeed.designsystem.component.LedgerDivider
+import com.eric.contentfeed.designsystem.component.SourceMark
+import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
+import com.eric.contentfeed.feed.R
 import com.eric.contentfeed.feed.presentation.contract.SavedContract
+import com.eric.contentfeed.feed.presentation.format.formatPublishedDate
 import com.eric.contentfeed.feed.presentation.viewmodel.SavedViewModel
-import kotlinx.coroutines.flow.collectLatest
-import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
+import java.io.File
 
 @Composable
 fun SavedRoute(
-    onNavigateToArticle: (Int) -> Unit,
-    snackbarHostState: SnackbarHostState,
+    viewModel: SavedViewModel,
     modifier: Modifier = Modifier,
 ) {
-    val viewModel: SavedViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val currentOnNavigateToArticle by rememberUpdatedState(onNavigateToArticle)
-
-    LaunchedEffect(viewModel) {
-        viewModel.effects.collectLatest { effect ->
-            when (effect) {
-                is SavedContract.Effect.NavigateToArticle ->
-                    currentOnNavigateToArticle(effect.articleId)
-                is SavedContract.Effect.ShowUndo -> {
-                    val result =
-                        snackbarHostState.showSnackbar(
-                            message = "Removed from Saved",
-                            actionLabel = "Undo",
-                        )
-                    if (result == SnackbarResult.ActionPerformed) {
-                        viewModel.onEvent(SavedContract.Event.UndoRemoval(effect.articleId))
-                    } else {
-                        viewModel.onEvent(SavedContract.Event.UndoWindowElapsed(effect.articleId))
-                    }
-                    // If this coroutine is cancelled instead (composition teardown, e.g.
-                    // rotation or a tab switch), the removal is deliberately left pending:
-                    // the saved-list query hides it, the ViewModel's own timer and the
-                    // persisted deadline both still finalize it, and undo still works
-                    // until that deadline passes.
-                }
-                SavedContract.Effect.UndoUnavailable ->
-                    snackbarHostState.showSnackbar("That article was already removed.")
-            }
-        }
-    }
+    val imageLoader: ImageLoader = koinInject()
+    val dateUnknownLabel = stringResource(R.string.date_unknown)
 
     Column(modifier = modifier.fillMaxSize()) {
-        Text("Saved", modifier = Modifier.padding(16.dp))
         when (val content = state.content) {
-            SavedContract.ContentState.Loading -> CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-            SavedContract.ContentState.Empty -> Text("No saved articles yet.", modifier = Modifier.padding(16.dp))
+            SavedContract.ContentState.Loading ->
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
+                )
+            SavedContract.ContentState.Empty ->
+                EmptyPanel(
+                    message = stringResource(R.string.saved_empty),
+                    modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
+                )
             is SavedContract.ContentState.Ready ->
                 LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(content.items, key = { it.id }) { article ->
+                    itemsIndexed(content.items, key = { _, item -> item.id }) { index, article ->
                         ListItem(
                             modifier =
                                 Modifier.clickable {
                                     viewModel.onEvent(SavedContract.Event.OpenArticle(article.id))
                                 },
-                            headlineContent = { Text(article.title) },
-                            supportingContent = { Text(article.source) },
+                            overlineContent = { SourceMark(source = article.source) },
+                            leadingContent = {
+                                FeedImage(
+                                    model = article.localImagePath?.let(::File) ?: article.imageUrl,
+                                    imageLoader = imageLoader,
+                                    contentDescription = article.title,
+                                    diskCacheKey = article.imageUrl.takeIf { article.localImagePath == null },
+                                    modifier =
+                                        Modifier
+                                            .size(ContentFeedTheme.dimens.thumbnailSaved)
+                                            .clip(MaterialTheme.shapes.medium),
+                                )
+                            },
+                            headlineContent = {
+                                Text(article.title, style = MaterialTheme.typography.titleMedium)
+                            },
+                            supportingContent = {
+                                Text(
+                                    text =
+                                        formatPublishedDate(
+                                            article.publishedAtEpochMillis,
+                                            unknownLabel = dateUnknownLabel,
+                                        ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
                             trailingContent = {
-                                TextButton(
+                                IconButton(
+                                    modifier = Modifier.size(ContentFeedTheme.dimens.touchMin),
                                     onClick = {
                                         viewModel.onEvent(SavedContract.Event.RemoveArticle(article.id))
                                     },
                                 ) {
-                                    Text("Remove")
+                                    Icon(
+                                        imageVector = Icons.Outlined.DeleteOutline,
+                                        contentDescription = stringResource(R.string.saved_remove),
+                                    )
                                 }
                             },
                         )
-                        HorizontalDivider()
+                        if (index < content.items.lastIndex) {
+                            LedgerDivider()
+                        }
                     }
                 }
         }

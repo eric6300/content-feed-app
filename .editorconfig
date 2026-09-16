@@ -10,3 +10,4 @@ max_line_length = 120
 
 [*.{kt,kts}]
 ij_kotlin_code_style_defaults = KOTLIN_OFFICIAL
+compose_allowed_composition_locals = LocalSignalDimens, LocalSignalExtendedColors
