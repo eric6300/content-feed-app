@@ -53,6 +53,7 @@ android {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":designsystem"))
     implementation(project(":feed"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
