@@ -4,20 +4,20 @@ package com.eric.contentfeed.feed.presentation.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -30,11 +30,11 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun SavedRoute(
     onNavigateToArticle: (Int) -> Unit,
+    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: SavedViewModel = koinViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
     val currentOnNavigateToArticle by rememberUpdatedState(onNavigateToArticle)
 
     LaunchedEffect(viewModel) {
@@ -43,33 +43,29 @@ fun SavedRoute(
                 is SavedContract.Effect.NavigateToArticle ->
                     currentOnNavigateToArticle(effect.articleId)
                 is SavedContract.Effect.ShowUndo -> {
-                    var settled = false
-                    try {
-                        val result =
-                            snackbarHostState.showSnackbar(
-                                message = "Removed from Saved",
-                                actionLabel = "Undo",
-                            )
-                        if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
-                            viewModel.onEvent(SavedContract.Event.UndoRemoval(effect.articleId))
-                        } else {
-                            viewModel.onEvent(SavedContract.Event.UndoWindowElapsed(effect.articleId))
-                        }
-                        settled = true
-                    } finally {
-                        // collectLatest and leaving composition cancel showSnackbar. Treat
-                        // that cancellation as dismissal for this article only; the
-                        // ViewModel's per-article timer remains the lifecycle-safe fallback.
-                        if (!settled) {
-                            viewModel.onEvent(SavedContract.Event.UndoWindowElapsed(effect.articleId))
-                        }
+                    val result =
+                        snackbarHostState.showSnackbar(
+                            message = "Removed from Saved",
+                            actionLabel = "Undo",
+                        )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        viewModel.onEvent(SavedContract.Event.UndoRemoval(effect.articleId))
+                    } else {
+                        viewModel.onEvent(SavedContract.Event.UndoWindowElapsed(effect.articleId))
                     }
+                    // If this coroutine is cancelled instead (composition teardown, e.g.
+                    // rotation or a tab switch), the removal is deliberately left pending:
+                    // the saved-list query hides it, the ViewModel's own timer and the
+                    // persisted deadline both still finalize it, and undo still works
+                    // until that deadline passes.
                 }
+                SavedContract.Effect.UndoUnavailable ->
+                    snackbarHostState.showSnackbar("That article was already removed.")
             }
         }
     }
 
-    Column(modifier = modifier) {
+    Column(modifier = modifier.fillMaxSize()) {
         Text("Saved", modifier = Modifier.padding(16.dp))
         when (val content = state.content) {
             SavedContract.ContentState.Loading -> CircularProgressIndicator(modifier = Modifier.padding(16.dp))
@@ -98,6 +94,5 @@ fun SavedRoute(
                     }
                 }
         }
-        SnackbarHost(hostState = snackbarHostState)
     }
 }

@@ -9,7 +9,7 @@ import com.eric.contentfeed.feed.domain.usecase.UndoUnsaveArticleUseCase
 import com.eric.contentfeed.feed.domain.usecase.UnsaveArticleUseCase
 import com.eric.contentfeed.feed.domain.usecase.UnsaveSource
 import com.eric.contentfeed.feed.presentation.contract.SavedContract
-import com.eric.contentfeed.feed.presentation.model.ArticleUiModel
+import com.eric.contentfeed.feed.presentation.model.toArticleUiModel
 import com.eric.contentfeed.feed.presentation.mvi.MviViewModel
 import com.eric.contentfeed.feed.repository.FeedPolicy
 import kotlinx.coroutines.Job
@@ -62,7 +62,7 @@ class SavedViewModel(
 
     private suspend fun undoRemoval(articleId: Int) {
         pendingRemovalJobs.remove(articleId)?.cancel()
-        undoUnsaveArticle(articleId)
+        if (!undoUnsaveArticle(articleId)) emitEffect(SavedContract.Effect.UndoUnavailable)
     }
 }
 
@@ -72,17 +72,3 @@ private fun List<CachedArticle>.toContentState(): SavedContract.ContentState =
     } else {
         SavedContract.ContentState.Ready(map(CachedArticle::toArticleUiModel))
     }
-
-private fun CachedArticle.toArticleUiModel(): ArticleUiModel =
-    ArticleUiModel(
-        id = article.id,
-        title = article.title,
-        source = article.source,
-        authors = article.authors,
-        summary = article.summary,
-        imageUrl = article.imageUrl,
-        articleUrl = article.articleUrl,
-        publishedAtEpochMillis = article.publishedAtEpochMillis,
-        isSaved = isSaved,
-        localImagePath = localImagePath,
-    )

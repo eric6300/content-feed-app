@@ -3,7 +3,6 @@ package com.eric.contentfeed.feed.presentation.viewmodel
 import androidx.lifecycle.viewModelScope
 import com.eric.contentfeed.core.connectivity.ConnectivityStatus
 import com.eric.contentfeed.feed.domain.model.ArticleStreamStatus
-import com.eric.contentfeed.feed.domain.model.CachedArticle
 import com.eric.contentfeed.feed.domain.model.FeedItem
 import com.eric.contentfeed.feed.domain.model.FeedRefreshResult
 import com.eric.contentfeed.feed.domain.model.FeedSnapshot
@@ -25,6 +24,7 @@ import com.eric.contentfeed.feed.presentation.model.FeedItemUiModel
 import com.eric.contentfeed.feed.presentation.model.ServiceCardUiModel
 import com.eric.contentfeed.feed.presentation.model.WeatherForecastUiModel
 import com.eric.contentfeed.feed.presentation.model.WeatherUiModel
+import com.eric.contentfeed.feed.presentation.model.toArticleUiModel
 import com.eric.contentfeed.feed.presentation.mvi.MviViewModel
 import com.eric.contentfeed.feed.presentation.weather.WeatherConditionMapper
 import kotlinx.coroutines.flow.combine
@@ -187,8 +187,11 @@ private fun WeatherData.toUiModel(): WeatherUiModel =
             },
     )
 
+private fun RemoteFailure.explainedByOffline(connectivity: ConnectivityStatus): Boolean =
+    this == RemoteFailure.NetworkUnavailable && connectivity == ConnectivityStatus.Offline
+
 private fun List<FeedItem>.toArticleStreamState(
-    status: com.eric.contentfeed.feed.domain.model.ArticleStreamStatus,
+    status: ArticleStreamStatus,
     connectivity: ConnectivityStatus,
 ): FeedContract.ArticleStreamState {
     if (isEmpty()) {
@@ -198,9 +201,7 @@ private fun List<FeedItem>.toArticleStreamState(
             -> FeedContract.ArticleStreamState.Loading
             SourceStatus.Ready -> FeedContract.ArticleStreamState.Empty
             is SourceStatus.Failed ->
-                if (refresh.cause == RemoteFailure.NetworkUnavailable &&
-                    connectivity == ConnectivityStatus.Offline
-                ) {
+                if (refresh.cause.explainedByOffline(connectivity)) {
                     FeedContract.ArticleStreamState.OfflineEmpty
                 } else {
                     FeedContract.ArticleStreamState.Error(refresh.cause)
@@ -211,7 +212,10 @@ private fun List<FeedItem>.toArticleStreamState(
     return FeedContract.ArticleStreamState.Content(
         items = map(FeedItem::toUiModel),
         isRefreshing = status.refresh == SourceStatus.Loading,
-        error = (status.refresh as? SourceStatus.Failed)?.cause,
+        error =
+            (status.refresh as? SourceStatus.Failed)?.cause?.takeUnless {
+                it.explainedByOffline(connectivity)
+            },
         pagination = status.toPaginationState(),
     )
 }
@@ -226,7 +230,7 @@ private fun ArticleStreamStatus.toPaginationState(): FeedContract.PaginationStat
 
 private fun FeedItem.toUiModel(): FeedItemUiModel =
     when (this) {
-        is FeedItem.ArticleItem -> FeedItemUiModel.Article(article.toUiModel())
+        is FeedItem.ArticleItem -> FeedItemUiModel.Article(article.toArticleUiModel())
         is FeedItem.ServiceCardItem ->
             FeedItemUiModel.ServiceCard(
                 ServiceCardUiModel(
@@ -242,17 +246,3 @@ private fun FeedItem.toUiModel(): FeedItemUiModel =
                 ),
             )
     }
-
-private fun CachedArticle.toUiModel(): ArticleUiModel =
-    ArticleUiModel(
-        id = article.id,
-        title = article.title,
-        source = article.source,
-        authors = article.authors,
-        summary = article.summary,
-        imageUrl = article.imageUrl,
-        articleUrl = article.articleUrl,
-        publishedAtEpochMillis = article.publishedAtEpochMillis,
-        isSaved = isSaved,
-        localImagePath = localImagePath,
-    )

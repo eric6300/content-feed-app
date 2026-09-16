@@ -35,6 +35,8 @@ interface SavedContract {
         data class ShowUndo(
             val articleId: Int,
         ) : Effect
+
+        data object UndoUnavailable : Effect
     }
 
     sealed interface ContentState {

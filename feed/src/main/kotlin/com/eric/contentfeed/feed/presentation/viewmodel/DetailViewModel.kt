@@ -10,10 +10,10 @@ import com.eric.contentfeed.feed.domain.usecase.SaveArticleUseCase
 import com.eric.contentfeed.feed.domain.usecase.UnsaveArticleUseCase
 import com.eric.contentfeed.feed.domain.usecase.UnsaveSource
 import com.eric.contentfeed.feed.presentation.contract.DetailContract
-import com.eric.contentfeed.feed.presentation.model.ArticleUiModel
 import com.eric.contentfeed.feed.presentation.model.DetailTarget
 import com.eric.contentfeed.feed.presentation.model.DetailUiModel
 import com.eric.contentfeed.feed.presentation.model.ServiceCardUiModel
+import com.eric.contentfeed.feed.presentation.model.toArticleUiModel
 import com.eric.contentfeed.feed.presentation.mvi.MviViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -110,22 +110,7 @@ class DetailViewModel(
 private fun Flow<CachedArticle?>.mapToDetailState(): Flow<DetailContract.ContentState> =
     map { article ->
         article?.let {
-            DetailContract.ContentState.Ready(
-                DetailUiModel.Article(
-                    ArticleUiModel(
-                        id = it.article.id,
-                        title = it.article.title,
-                        source = it.article.source,
-                        authors = it.article.authors,
-                        summary = it.article.summary,
-                        imageUrl = it.article.imageUrl,
-                        articleUrl = it.article.articleUrl,
-                        publishedAtEpochMillis = it.article.publishedAtEpochMillis,
-                        isSaved = it.isSaved,
-                        localImagePath = it.localImagePath,
-                    ),
-                ),
-            )
+            DetailContract.ContentState.Ready(DetailUiModel.Article(it.toArticleUiModel()))
         } ?: DetailContract.ContentState.NotFound
     }
 

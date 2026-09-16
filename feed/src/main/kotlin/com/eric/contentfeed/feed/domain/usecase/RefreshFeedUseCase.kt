@@ -23,6 +23,11 @@ enum class RefreshTrigger {
      * the user is currently looking at (`USE_CASES.md` → "A manual pull-to-refresh or
      * a reconnect refresh does not run retention cleanup"). */
     Reconnect,
+
+    /** Respects the TTL. Never runs retention cleanup, for the same reason as
+     * [Reconnect]: a foreground return can land mid-scroll, and the app preserves
+     * scroll position across it. */
+    ForegroundReturn,
 }
 
 /** Refreshes weather and articles concurrently and independently — one source

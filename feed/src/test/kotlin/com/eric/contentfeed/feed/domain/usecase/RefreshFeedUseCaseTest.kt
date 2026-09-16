@@ -111,4 +111,17 @@ class RefreshFeedUseCaseTest {
 
             coVerify(exactly = 0) { articleRepository.pruneStaleUnsavedArticles() }
         }
+
+    @Test
+    fun foregroundReturnTriggerRespectsFreshnessAndNeverRunsCleanup() =
+        runTest {
+            coEvery { weatherRepository.refresh(any()) } returns RefreshOutcome.Succeeded
+            coEvery { articleRepository.refreshTop(any()) } returns RefreshOutcome.Succeeded
+
+            useCase(RefreshTrigger.ForegroundReturn)
+
+            coVerify { weatherRepository.refresh(false) }
+            coVerify { articleRepository.refreshTop(false) }
+            coVerify(exactly = 0) { articleRepository.pruneStaleUnsavedArticles() }
+        }
 }

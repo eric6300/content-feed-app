@@ -102,6 +102,20 @@ class SavedViewModelTest {
             }
         }
 
+    @Test
+    fun undoRemovalEmitsUndoUnavailableWhenTheRemovalWasAlreadyFinalized() =
+        runTest(testDispatcher) {
+            advanceUntilIdle()
+            removeAndAwaitUndo(1)
+            coEvery { undoUnsaveArticle(1) } returns false
+
+            val effect = async { viewModel.effects.first() }
+            viewModel.onEvent(SavedContract.Event.UndoRemoval(1))
+            runCurrent()
+
+            assertEquals(SavedContract.Effect.UndoUnavailable, effect.await())
+        }
+
     private suspend fun TestScope.removeAndAwaitUndo(articleId: Int) {
         val effect = async { viewModel.effects.first() }
         viewModel.onEvent(SavedContract.Event.RemoveArticle(articleId))

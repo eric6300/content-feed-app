@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -45,6 +46,24 @@ class MviViewModelTest {
             viewModel.onEvent("second")
             advanceUntilIdle()
             assertEquals("second", secondEffect.await())
+        }
+
+    @Test
+    fun effectBufferHoldsMultipleEffectsWithoutACollector() =
+        runTest(testDispatcher) {
+            val viewModel = TestViewModel()
+
+            viewModel.onEvent("first")
+            viewModel.onEvent("second")
+            viewModel.onEvent("third")
+            advanceUntilIdle()
+
+            val received = mutableListOf<String>()
+            val collection = launch { viewModel.effects.collect(received::add) }
+            advanceUntilIdle()
+            collection.cancel()
+
+            assertEquals(listOf("first", "second", "third"), received)
         }
 
     private class TestViewModel : MviViewModel<Unit, String, String>(Unit) {

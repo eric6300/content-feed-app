@@ -8,6 +8,7 @@ import com.eric.contentfeed.feed.domain.usecase.FinalizeTrigger
 import com.eric.contentfeed.feed.domain.usecase.RefreshFeedUseCase
 import com.eric.contentfeed.feed.domain.usecase.RefreshTrigger
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.mockk
 import kotlinx.coroutines.async
@@ -18,7 +19,7 @@ import org.junit.Test
 
 class ForegroundCoordinatorTest {
     @Test
-    fun appStartFinalizesPendingRemovalsBeforeRefreshingSources() =
+    fun coldStartFinalizesPendingRemovalsBeforeRefreshingSources() =
         runTest {
             val finalize = mockk<FinalizePendingUnsavesUseCase>()
             val refresh = mockk<RefreshFeedUseCase>()
@@ -26,7 +27,7 @@ class ForegroundCoordinatorTest {
             coEvery { refresh(RefreshTrigger.InitialOpen) } returns
                 FeedRefreshResult(SourceRefreshResult.Skipped, SourceRefreshResult.Skipped)
 
-            ForegroundCoordinator(finalize, refresh).onStart()
+            ForegroundCoordinator(finalize, refresh).onForeground()
 
             coVerifyOrder {
                 finalize(FinalizeTrigger.AppStart)
@@ -35,7 +36,7 @@ class ForegroundCoordinatorTest {
         }
 
     @Test
-    fun initialRefreshFailuresArePublishedAsScopedEffects() =
+    fun coldStartRefreshFailuresArePublishedAsScopedEffects() =
         runTest {
             val finalize = mockk<FinalizePendingUnsavesUseCase>()
             val refresh = mockk<RefreshFeedUseCase>()
@@ -48,7 +49,7 @@ class ForegroundCoordinatorTest {
             val coordinator = ForegroundCoordinator(finalize, refresh)
             val effect = async { coordinator.effects.first() }
 
-            coordinator.onStart()
+            coordinator.onForeground()
 
             assertEquals(
                 ForegroundEffect.SourceRefreshFailed(
@@ -57,5 +58,28 @@ class ForegroundCoordinatorTest {
                 ),
                 effect.await(),
             )
+        }
+
+    @Test
+    fun secondForegroundReturnUsesTheDeadlineRespectingTriggersNotColdStart() =
+        runTest {
+            val finalize = mockk<FinalizePendingUnsavesUseCase>()
+            val refresh = mockk<RefreshFeedUseCase>()
+            coEvery { finalize(any()) } returns Unit
+            coEvery { refresh(any()) } returns
+                FeedRefreshResult(SourceRefreshResult.Skipped, SourceRefreshResult.Skipped)
+            val coordinator = ForegroundCoordinator(finalize, refresh)
+
+            coordinator.onForeground()
+            coordinator.onForeground()
+
+            coVerifyOrder {
+                finalize(FinalizeTrigger.AppStart)
+                refresh(RefreshTrigger.InitialOpen)
+                finalize(FinalizeTrigger.ForegroundReturn)
+                refresh(RefreshTrigger.ForegroundReturn)
+            }
+            coVerify(exactly = 1) { finalize(FinalizeTrigger.AppStart) }
+            coVerify(exactly = 1) { refresh(RefreshTrigger.InitialOpen) }
         }
 }

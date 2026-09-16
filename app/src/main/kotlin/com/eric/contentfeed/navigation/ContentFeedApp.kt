@@ -139,6 +139,7 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                     onNavigateToArticle = { articleId ->
                         savedBackStack.add(ContentFeedNavKey.ArticleDetail(articleId))
                     },
+                    snackbarHostState = snackbarHostState,
                 )
             }
             entry<ContentFeedNavKey.ArticleDetail> { key ->
@@ -218,9 +219,11 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                     NavigationBarItem(
                         selected = selectedTab == RootTab.Reading,
                         onClick = {
-                            selectedTab = RootTab.Reading
-                            readingBackStack.clear()
-                            readingBackStack.add(ContentFeedNavKey.Reading)
+                            if (selectedTab == RootTab.Reading) {
+                                while (readingBackStack.size > 1) readingBackStack.removeLastOrNull()
+                            } else {
+                                selectedTab = RootTab.Reading
+                            }
                         },
                         icon = { Text("R") },
                         label = { Text("Reading") },
@@ -228,9 +231,11 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                     NavigationBarItem(
                         selected = selectedTab == RootTab.Saved,
                         onClick = {
-                            selectedTab = RootTab.Saved
-                            savedBackStack.clear()
-                            savedBackStack.add(ContentFeedNavKey.Saved)
+                            if (selectedTab == RootTab.Saved) {
+                                while (savedBackStack.size > 1) savedBackStack.removeLastOrNull()
+                            } else {
+                                selectedTab = RootTab.Saved
+                            }
                         },
                         icon = { Text("S") },
                         label = { Text("Saved") },
