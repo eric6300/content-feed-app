@@ -26,4 +26,15 @@ class FinalizePendingUnsavesUseCaseTest {
 
             coVerify(exactly = 1) { repository.finalizeRemoval(42) }
         }
+
+    @Test
+    fun foregroundReturnOnlyFinalizesRemovalsPastTheirDeadline() =
+        runTest {
+            val repository = mockk<SavedArticleRepository>(relaxed = true)
+
+            FinalizePendingUnsavesUseCase(repository)(FinalizeTrigger.ForegroundReturn)
+
+            coVerify(exactly = 1) { repository.finalizeExpiredRemovals() }
+            coVerify(exactly = 0) { repository.finalizeAllPendingRemovals() }
+        }
 }

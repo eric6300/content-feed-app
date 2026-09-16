@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.eric.contentfeed.feed"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24
@@ -72,6 +72,7 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.coil.svg)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 

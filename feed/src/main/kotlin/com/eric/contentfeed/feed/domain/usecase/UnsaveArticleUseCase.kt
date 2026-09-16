@@ -15,10 +15,13 @@ class UnsaveArticleUseCase(
     suspend operator fun invoke(
         articleId: Int,
         source: UnsaveSource,
-    ) {
+    ): Boolean {
         when (source) {
-            UnsaveSource.FeedOrDetail -> repository.unsaveArticleImmediately(articleId)
-            UnsaveSource.SavedList -> repository.removeFromSavedList(articleId)
+            UnsaveSource.FeedOrDetail -> {
+                repository.unsaveArticleImmediately(articleId)
+                return true
+            }
+            UnsaveSource.SavedList -> return repository.removeFromSavedList(articleId)
         }
     }
 }

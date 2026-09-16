@@ -3,6 +3,7 @@ package com.eric.contentfeed.feed.di
 import coil3.ImageLoader
 import coil3.disk.DiskCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.svg.SvgDecoder
 import com.eric.contentfeed.feed.data.local.ArticleAuthorsJsonCodec
 import com.eric.contentfeed.feed.data.local.BundledServiceCardCatalog
 import com.eric.contentfeed.feed.data.local.CoilSavedImageStore
@@ -25,12 +26,19 @@ import com.eric.contentfeed.feed.data.remote.spaceflightnews.SpaceflightNewsRemo
 import com.eric.contentfeed.feed.domain.usecase.FinalizePendingUnsavesUseCase
 import com.eric.contentfeed.feed.domain.usecase.LoadNextArticlePageUseCase
 import com.eric.contentfeed.feed.domain.usecase.ObserveArticleUseCase
+import com.eric.contentfeed.feed.domain.usecase.ObserveConnectivityUseCase
 import com.eric.contentfeed.feed.domain.usecase.ObserveFeedUseCase
 import com.eric.contentfeed.feed.domain.usecase.ObserveSavedArticlesUseCase
 import com.eric.contentfeed.feed.domain.usecase.RefreshFeedUseCase
+import com.eric.contentfeed.feed.domain.usecase.ResolveServiceCardUseCase
 import com.eric.contentfeed.feed.domain.usecase.SaveArticleUseCase
 import com.eric.contentfeed.feed.domain.usecase.UndoUnsaveArticleUseCase
 import com.eric.contentfeed.feed.domain.usecase.UnsaveArticleUseCase
+import com.eric.contentfeed.feed.presentation.model.DetailTarget
+import com.eric.contentfeed.feed.presentation.viewmodel.ConnectivityViewModel
+import com.eric.contentfeed.feed.presentation.viewmodel.DetailViewModel
+import com.eric.contentfeed.feed.presentation.viewmodel.FeedViewModel
+import com.eric.contentfeed.feed.presentation.viewmodel.SavedViewModel
 import com.eric.contentfeed.feed.repository.ArticleRepository
 import com.eric.contentfeed.feed.repository.DefaultArticleRepository
 import com.eric.contentfeed.feed.repository.DefaultSavedArticleRepository
@@ -40,6 +48,7 @@ import com.eric.contentfeed.feed.repository.WeatherRepository
 import okhttp3.OkHttpClient
 import okio.Path.Companion.toPath
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val feedModule =
@@ -56,8 +65,10 @@ val feedModule =
             val client = get<OkHttpClient>()
             ImageLoader
                 .Builder(context)
-                .components { add(OkHttpNetworkFetcherFactory(client)) }
-                .diskCache(
+                .components {
+                    add(OkHttpNetworkFetcherFactory(client))
+                    add(SvgDecoder.Factory())
+                }.diskCache(
                     DiskCache
                         .Builder()
                         .directory(
@@ -84,6 +95,7 @@ val feedModule =
         single<SavedArticleRepository> { DefaultSavedArticleRepository(get(), get(), get()) }
 
         factory { ObserveFeedUseCase(get(), get(), get()) }
+        factory { ObserveConnectivityUseCase(get()) }
         factory { RefreshFeedUseCase(get(), get()) }
         factory { LoadNextArticlePageUseCase(get()) }
         factory { SaveArticleUseCase(get()) }
@@ -92,4 +104,12 @@ val feedModule =
         factory { FinalizePendingUnsavesUseCase(get()) }
         factory { ObserveSavedArticlesUseCase(get()) }
         factory { ObserveArticleUseCase(get()) }
+        factory { ResolveServiceCardUseCase(get()) }
+
+        viewModel { FeedViewModel(get(), get(), get(), get(), get(), get()) }
+        viewModel { (target: DetailTarget) ->
+            DetailViewModel(target, get(), get(), get(), get(), get())
+        }
+        viewModel { SavedViewModel(get(), get(), get(), get()) }
+        viewModel { ConnectivityViewModel(get()) }
     }

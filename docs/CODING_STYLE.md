@@ -39,7 +39,7 @@ interface FeedContract {
 - **Event**: a sealed interface, one entry per user intent, verb-named (`Refresh`, `SaveArticle`, not `RefreshClicked`/`OnSaveArticle`).
 - **Effect**: a sealed interface for one-shot outcomes only (navigation, a snackbar, an external link) — never used to carry state that should survive recomposition or a config change.
 
-A shared base ViewModel owns the plumbing (state holder, event dispatch, effect channel); a concrete `XxxViewModel` only implements `handleEvents(event)` and its private per-event handlers, and never exposes mutable state directly to the UI.
+A shared base ViewModel owns the plumbing (state holder, event dispatch, effect channel); a concrete `XxxViewModel` only implements `handleEvent(event)` and its private per-event handlers, and never exposes mutable state directly to the UI.
 
 ## Naming & package layout
 
@@ -52,8 +52,13 @@ core/
   di/          CoreModule.kt
 
 feed/
-  contract/       FeedContract.kt
-  viewmodel/      FeedViewModel.kt
+  presentation/
+    contract/      FeedContract.kt, SavedContract.kt, ...
+    viewmodel/     FeedViewModel.kt, SavedViewModel.kt, ...
+    ui/            FeedRoute.kt, SavedRoute.kt, ...
+    model/         PresentationModels.kt, ArticleUiMapper.kt, ...
+    mvi/           MviViewModel.kt
+    weather/       WeatherConditionMapper.kt, ...
   repository/     ArticleRepository.kt, WeatherRepository.kt (+ their Default impls),
                   FeedPolicy.kt (TTL/pagination/retention constants), SourceRefresher.kt
                   (shared stale-check → fetch → persist → mark-fetched helper)

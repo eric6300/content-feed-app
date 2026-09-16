@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.eric.contentfeed.core"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 24

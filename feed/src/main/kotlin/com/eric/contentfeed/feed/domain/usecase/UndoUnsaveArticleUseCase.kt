@@ -7,7 +7,5 @@ import com.eric.contentfeed.feed.repository.SavedArticleRepository
 class UndoUnsaveArticleUseCase(
     private val repository: SavedArticleRepository,
 ) {
-    suspend operator fun invoke(articleId: Int) {
-        repository.undoRemoval(articleId)
-    }
+    suspend operator fun invoke(articleId: Int): Boolean = repository.undoRemoval(articleId)
 }
