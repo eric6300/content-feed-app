@@ -3,6 +3,8 @@ package com.eric.contentfeed.feed.repository
 import com.eric.contentfeed.core.freshness.FreshnessGate
 import com.eric.contentfeed.feed.data.remote.RemoteResult
 import com.eric.contentfeed.feed.domain.model.RemoteFailure
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.Duration
 
 /** Whether a refresh actually reached the network, distinguishing a stale check that
@@ -32,22 +34,28 @@ sealed interface RefreshOutcome {
 internal class SourceRefresher(
     private val freshnessGate: FreshnessGate,
 ) {
+    private val refreshMutex = Mutex()
+
     suspend fun <T> refreshIfNeeded(
         key: String,
         ttl: Duration,
         bypassFreshness: Boolean,
         fetch: suspend () -> RemoteResult<T>,
         persist: suspend (T) -> Unit,
-    ): RefreshOutcome {
-        if (!bypassFreshness && !freshnessGate.isStale(key, ttl)) return RefreshOutcome.Skipped
+    ): RefreshOutcome =
+        refreshMutex.withLock {
+            // The freshness check must be inside the same critical section as the
+            // fetch and markFetched. Otherwise reconnect and foreground refreshes can
+            // both observe stale data before either request advances the gate.
+            if (!bypassFreshness && !freshnessGate.isStale(key, ttl)) return@withLock RefreshOutcome.Skipped
 
-        return when (val result = fetch()) {
-            is RemoteResult.Loaded -> {
-                persist(result.value)
-                freshnessGate.markFetched(key)
-                RefreshOutcome.Succeeded
+            when (val result = fetch()) {
+                is RemoteResult.Loaded -> {
+                    persist(result.value)
+                    freshnessGate.markFetched(key)
+                    RefreshOutcome.Succeeded
+                }
+                is RemoteResult.Failure -> RefreshOutcome.Failed(result.cause)
             }
-            is RemoteResult.Failure -> RefreshOutcome.Failed(result.cause)
         }
-    }
 }
