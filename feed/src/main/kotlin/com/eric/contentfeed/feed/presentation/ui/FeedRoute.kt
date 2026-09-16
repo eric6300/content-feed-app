@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
@@ -30,9 +31,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,17 +43,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.ImageLoader
 import com.eric.contentfeed.core.connectivity.ConnectivityStatus
 import com.eric.contentfeed.designsystem.component.EmptyPanel
+import com.eric.contentfeed.designsystem.component.KeepAction
+import com.eric.contentfeed.designsystem.component.LedgerDivider
 import com.eric.contentfeed.designsystem.component.ScopedErrorPanel
+import com.eric.contentfeed.designsystem.component.SourceMark
 import com.eric.contentfeed.designsystem.component.WeatherPanelSkeleton
 import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
 import com.eric.contentfeed.feed.domain.model.RemoteFailure
 import com.eric.contentfeed.feed.presentation.contract.FeedContract
+import com.eric.contentfeed.feed.presentation.format.formatPrice
+import com.eric.contentfeed.feed.presentation.format.formatPublishedDate
 import com.eric.contentfeed.feed.presentation.model.FeedItemUiModel
 import com.eric.contentfeed.feed.presentation.model.WeatherForecastUiModel
 import com.eric.contentfeed.feed.presentation.model.WeatherUiModel
@@ -136,10 +140,10 @@ fun FeedRoute(
                             )
                         }
                     }
-                    items(
+                    itemsIndexed(
                         items = articles.items,
-                        key = { item -> item.key },
-                    ) { item ->
+                        key = { _, item -> item.key },
+                    ) { index, item ->
                         FeedItemRow(
                             item = item,
                             imageLoader = imageLoader,
@@ -154,6 +158,9 @@ fun FeedRoute(
                             },
                             onToggleSave = { viewModel.onEvent(FeedContract.Event.ToggleSave(it)) },
                         )
+                        if (index < articles.items.lastIndex) {
+                            LedgerDivider()
+                        }
                     }
                     item(key = "pagination") {
                         PaginationFooter(
@@ -186,8 +193,13 @@ private fun FeedContract.State.isRefreshing(): Boolean =
 
 @Composable
 private fun FeedHeader() {
+    val dimens = ContentFeedTheme.dimens
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            Modifier.fillMaxWidth().padding(
+                horizontal = dimens.space4,
+                vertical = dimens.space3,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -378,60 +390,97 @@ private fun FeedItemRow(
     onOpenExternalLink: (String) -> Unit,
     onToggleSave: (Int) -> Unit,
 ) {
+    val dimens = ContentFeedTheme.dimens
     when (item) {
         is FeedItemUiModel.Article ->
             ListItem(
                 modifier = Modifier.clickable { onOpenArticle(item.value.id) },
+                overlineContent = {
+                    SourceMark(source = item.value.source)
+                },
                 leadingContent = {
                     FeedImage(
                         model = item.value.localImagePath?.let(::File) ?: item.value.imageUrl,
                         imageLoader = imageLoader,
                         contentDescription = item.value.title,
                         diskCacheKey = item.value.imageUrl.takeIf { item.value.localImagePath == null },
-                        modifier = Modifier.size(96.dp, 72.dp),
+                        modifier = Modifier.size(dimens.thumbnailArticle).clip(MaterialTheme.shapes.medium),
                     )
                 },
-                headlineContent = { Text(item.value.title) },
+                headlineContent = {
+                    Text(item.value.title, style = MaterialTheme.typography.titleMedium)
+                },
                 supportingContent = {
-                    Text(item.value.summary ?: item.value.source)
+                    Column(verticalArrangement = Arrangement.spacedBy(dimens.space1)) {
+                        Text(
+                            text = item.value.summary ?: "No summary available.",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            text = formatPublishedDate(item.value.publishedAtEpochMillis),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 },
                 trailingContent = {
-                    IconButton(onClick = { onToggleSave(item.value.id) }) {
-                        Text(if (item.value.isSaved) "✓" else "+")
-                    }
+                    KeepAction(
+                        isKept = item.value.isSaved,
+                        contentDescription =
+                            if (item.value.isSaved) "Remove from saved" else "Save article",
+                        onClick = { onToggleSave(item.value.id) },
+                    )
                 },
             )
         is FeedItemUiModel.ServiceCard ->
-            Card(
-                onClick = {
-                    onOpenServiceCard(item.value.poolIndex, item.value.assignmentSequence)
-                },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onOpenServiceCard(item.value.poolIndex, item.value.assignmentSequence)
+                        }.padding(
+                            horizontal = dimens.space4,
+                            vertical = dimens.space3,
+                        ),
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    FeedImage(
-                        model = item.value.imageAssetPath.toAssetUri(),
-                        imageLoader = imageLoader,
-                        contentDescription = item.value.title,
-                        modifier = Modifier.fillMaxWidth().height(144.dp),
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(item.value.title, style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(item.value.blurb)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        enabled = canOpenExternalLinks,
-                        onClick = {
-                            onOpenExternalLink(item.value.targetUrl)
-                        },
-                    ) {
-                        Text("View service")
+                androidx.compose.material3.Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    shape = MaterialTheme.shapes.large,
+                    tonalElevation = dimens.elevationTonal1,
+                ) {
+                    Column(modifier = Modifier.padding(dimens.space4)) {
+                        FeedImage(
+                            model = item.value.imageAssetPath.toAssetUri(),
+                            imageLoader = imageLoader,
+                            contentDescription = item.value.title,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(dimens.serviceImageHeight)
+                                    .clip(MaterialTheme.shapes.medium),
+                        )
+                        Spacer(modifier = Modifier.height(dimens.space3))
+                        Text(item.value.title, style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.height(dimens.space1))
+                        Text(item.value.blurb, style = MaterialTheme.typography.bodyLarge)
+                        item.value.price?.let { price ->
+                            Spacer(modifier = Modifier.height(dimens.space2))
+                            Text(
+                                text = "Price ${formatPrice(price)}",
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(dimens.space3))
+                        Button(
+                            enabled = canOpenExternalLinks,
+                            onClick = { onOpenExternalLink(item.value.targetUrl) },
+                        ) { Text("View service") }
                     }
                 }
             }
     }
-    HorizontalDivider()
 }
 
 @Composable
@@ -443,11 +492,14 @@ private fun PaginationFooter(
         FeedContract.PaginationState.Idle -> Unit
         FeedContract.PaginationState.Loading ->
             CircularProgressIndicator(
-                modifier = Modifier.padding(16.dp).size(24.dp),
+                modifier =
+                    Modifier.padding(ContentFeedTheme.dimens.space4).size(
+                        ContentFeedTheme.dimens.iconStandard,
+                    ),
             )
         is FeedContract.PaginationState.RetryableError ->
             Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(ContentFeedTheme.dimens.space4),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Could not load more articles.", modifier = Modifier.weight(1f))
@@ -456,7 +508,7 @@ private fun PaginationFooter(
         FeedContract.PaginationState.End ->
             Text(
                 text = "You are all caught up.",
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
                 style = MaterialTheme.typography.labelMedium,
             )
     }
@@ -465,18 +517,18 @@ private fun PaginationFooter(
 @Composable
 private fun LoadingMessage(message: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth().padding(ContentFeedTheme.dimens.space4),
+        horizontalArrangement = Arrangement.spacedBy(ContentFeedTheme.dimens.space3),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+        CircularProgressIndicator(modifier = Modifier.size(ContentFeedTheme.dimens.iconStandard))
         Text(message)
     }
 }
 
 @Composable
 private fun EmptyMessage(message: String) {
-    Text(message, modifier = Modifier.padding(16.dp))
+    EmptyPanel(message = message, modifier = Modifier.padding(ContentFeedTheme.dimens.space4))
 }
 
 @Composable
@@ -485,7 +537,7 @@ private fun ErrorMessage(
     onRetry: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(ContentFeedTheme.dimens.space4),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(errorMessage(failure), modifier = Modifier.weight(1f))
