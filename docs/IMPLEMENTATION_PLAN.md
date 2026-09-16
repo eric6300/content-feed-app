@@ -4,7 +4,7 @@ Back to [README](../README.md) · [Spec](SPEC.md) · [Use Cases](USE_CASES.md) �
 
 ## Current state
 
-T0 is complete as documentation, and T1–T6 are complete and merged into `develop`. The repository now has the `:app`, `:core`, `:feed`, and `:designsystem` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool), remote data sources for articles and weather, repository orchestration, feed use cases, MVI presentation contracts/ViewModels, Navigation 3, and offline save behavior. T7 is implemented on `feature/t7-compose-ui`; T8 remains the hardening and release-documentation pass.
+T0–T8 are all complete. The repository has the `:app`, `:core`, `:feed`, and `:designsystem` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool), remote data sources for articles and weather, repository orchestration, feed use cases, MVI presentation contracts/ViewModels, Navigation 3, offline save behavior, the Compose UI/design-system layer, and the T8 hardening pass (see T8's post-review note below for a tap-target fix and the debounced-click addition made after the initial hardening commit).
 
 The T1 baseline was verified with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The exact compatibility decisions are recorded in [`DECISIONS.md`](../DECISIONS.md).
 
@@ -75,7 +75,7 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 **Status:** complete on `feature/t3-remote-data-sources`.
 
-**Style contract:** Retrofit APIs and DTOs live only in `:feed`'s `data/remote` layer and stay `internal`; `:core` owns only the shared, source-agnostic network plumbing (one `OkHttpClient`, the `Moshi` singleton). Mappers normalize missing/invalid source fields into domain-safe values and perform no interpretation of raw source codes. Sandwich `ApiResponse`, Retrofit/OkHttp types, and DTOs are converted at the `RemoteDataSource` boundary into a shared `RemoteResult<T>` (`Loaded`/`Failure`) wrapping per-source payloads (`ArticlePage`, `WeatherData`) plus a shared `RemoteFailure` vocabulary, and never leak past it. No Room, repository, or UI type imports.
+**Style contract:** Retrofit APIs and DTOs live only in `:feed`'s `data/remote` layer and stay `internal`; `:core`'s contribution to this task is limited to the shared, source-agnostic network plumbing (one `OkHttpClient`, the `Moshi` singleton) — see `docs/CODING_STYLE.md` for `:core`'s full scope, which later grew to include framework-level Compose interaction primitives. Mappers normalize missing/invalid source fields into domain-safe values and perform no interpretation of raw source codes. Sandwich `ApiResponse`, Retrofit/OkHttp types, and DTOs are converted at the `RemoteDataSource` boundary into a shared `RemoteResult<T>` (`Loaded`/`Failure`) wrapping per-source payloads (`ArticlePage`, `WeatherData`) plus a shared `RemoteFailure` vocabulary, and never leak past it. No Room, repository, or UI type imports.
 
 **Work:**
 
@@ -188,6 +188,8 @@ Every task below follows the same loop. A task is not ready to implement until i
 - Perform one requirement traceability review from `PRODUCT.md` / `SPEC.md` → `USE_CASES.md` → tests → implementation.
 - Record significant implementation decisions and honest AI accept/reject/rewrite examples at the relevant commit, following the repo's logging conventions.
 - Update README build command, Plan & Sequencing status, known limitations, and deliberate cuts.
+
+**Post-review hardening:** a code-review pass on this task's branch found the service-card tap target had shrunk to an inner content block, excluding the surrounding card chrome and the CTA button's padding — a regression against `USE_CASES.md`'s "tapping elsewhere on the card opens the in-app detail view" with no corresponding document update, which this task's own style contract forbids. Fixed by moving the click handler to the card's outer content column, so the full visible card (minus the CTA button itself) is tappable again. While addressing it, the article, service-card, and Saved-list navigation entry points were also moved from bare `Modifier.clickable` to a new debounced `Modifier.click` (`:core`'s `ui` package) that ignores repeat taps within a short window, so a fast double-tap can no longer push the same destination twice. This is `:core`'s first Compose dependency; see `docs/CODING_STYLE.md` for the resulting module-boundary update.
 
 **Commit:** `docs: finalize release notes`.
 
