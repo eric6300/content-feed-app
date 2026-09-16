@@ -8,11 +8,11 @@ android
 
 ## Stack
 
-Kotlin, Jetpack Compose, Material 3, minimum SDK 24. The implementation plan already chooses a small multi-module structure (`:app`, `:core`, `:feed`) and the repository's existing SPEC records the planned supporting libraries.
+Kotlin, Jetpack Compose, Material 3, minimum SDK 24. The project uses a small multi-module structure (`:app`, `:core`, `:feed`, `:designsystem`); the repository's existing SPEC records the supporting libraries and module boundaries.
 
 ## Users
 
-Inferred from the current product brief: a mobile reader who wants to scan content from several sources during short sessions, save articles, and return to them when connectivity is unreliable.
+A mobile reader who wants to scan content from several sources during short sessions, save articles, and return to them when connectivity is unreliable.
 
 ## Product Purpose
 
@@ -22,7 +22,7 @@ Success means that a reader can understand what is available at a glance, open o
 
 ## Positioning
 
-Inferred from the product brief: a trustworthy multi-source reading entry point. Its differentiator is not a novel content format; it is making heterogeneous sources understandable while being explicit about freshness, source failure, and offline availability.
+Content Feed is a trustworthy multi-source reading entry point. Its differentiator is not a novel content format; it is making heterogeneous sources understandable while being explicit about freshness, source failure, and offline availability.
 
 ## Operating Context
 
@@ -49,7 +49,7 @@ Inferred from the product brief: a trustworthy multi-source reading entry point.
 
 - Product requirements and behavior scenarios are in `docs/SPEC.md` and `docs/USE_CASES.md`.
 - Existing architecture and source decisions are in `docs/SPEC.md` and `DECISIONS.md`.
-- The app's production UI and the Material 3 token contract described below are implemented; see `README.md` for what's currently built.
+- The app's production UI is implemented, and its Material 3 token contract is defined in `docs/DESIGN_TOKENS.md`; see `README.md` for what's currently built.
 
 ## Product Principles
 

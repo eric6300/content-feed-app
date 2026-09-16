@@ -22,7 +22,7 @@ Keep this repository's product-facing docs standalone. Do not copy the outer wor
 - `docs/DESIGN_TOKENS.md` — Material 3 semantic token and component contract; do not invent per-screen styling outside it.
 - `docs/IMPLEMENTATION_PLAN.md` — bottom-up task order, per-task coding-style contract, use-case test mapping, and commit gates.
 - Two skills exist for appending entries to `DECISIONS.md`/`AI_USAGE.md` (`/log-decision`, `/log-ai-usage`, defined one level up in the outer workspace — see its `CLAUDE.md`) — use them only when the user asks or at commit time (see Working conventions below), not proactively after every step.
-- Tech choices already made (see `DECISIONS.md` for the real record): Kotlin, Jetpack Compose, package `com.eric.contentfeed`, minSdk 24, compileSdk/targetSdk 35, AGP 8.7.3, Kotlin 2.0.21, Gradle 8.13 (wrapper committed).
+- Tech choices already made (see `DECISIONS.md` for the real record): Kotlin, Jetpack Compose, package `com.eric.contentfeed`, modules `:app`, `:core`, `:feed`, and `:designsystem`, minSdk 24, compileSdk 36, targetSdk 35, AGP 8.9.1, Kotlin 2.2.10, and Gradle 8.13 (wrapper committed). Keep exact dependency pins in `gradle/libs.versions.toml` and the compatibility note in `docs/SPEC.md`.
 - Build: `./gradlew build` from inside this repo.
 
 ## Working conventions

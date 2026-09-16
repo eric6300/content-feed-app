@@ -19,3 +19,14 @@ My role was to own the requirements and the boundaries. I decided what the produ
 Review passes found real defects I would not have found by reading: an undo window whose persisted deadline outlived its own cleanup sweep, a placement primary key missing `contentType`, and a missing DataStore corruption handler that would have blocked cache-first startup. It also rejected one of my own fixes as incomplete and showed the existing tests could not detect the bug at all, which is why that fix was verified by reverting the production code to confirm the new tests actually fail.
 
 It also argued against me twice and was right both times: when I suggested mocking all three data sources to save time, it pointed out that this removes any demonstration of a real network layer; and when I proposed dropping the "a placed card never moves" requirement, it showed the requirement descends from not disrupting the user's reading position, so removing it would only move the problem. Both stayed.
+
+## 2026-09-16 — Documentation audit and README architecture rewrite
+
+**Tool/flow:** Codex, repository-wide documentation review followed by a focused README rewrite.
+**Accepted:** Corrections to the documented toolchain, quickstart commands, fixed weather location, source freshness rules, saved-image behavior, module responsibilities, source-of-truth boundaries, and release limitations.
+**Rejected/rewrote:** The original README spent most of its space narrating the implementation process. It was rewritten around onboarding, product capabilities, architecture, data sources, freshness, documentation links, and known limitations. Earlier wording that implied saved-image storage always matched the saved count was also clarified: a local file exists only when an image was available to copy.
+**Why:** Cross-checking the prose against Gradle/CI configuration and the actual repository boundaries exposed stale versions, omitted pagination network requests, and the cached-image edge case. The updated automated build, lint, and JVM test gate passed after the documentation changes.
+
+## 2026-09-16 — Clarifying saved-image retention wording
+
+The earlier entry's statement that storage equals the saved count was too broad. A cache miss is a supported save path, so the accurate invariant is that each successfully captured saved image is tied to its saved row and is deleted when that saved image is finalized.

@@ -4,9 +4,9 @@ Back to [README](../README.md) · [Spec](SPEC.md) · [Use Cases](USE_CASES.md) �
 
 ## Current state
 
-T0–T8 are all complete. The repository has the `:app`, `:core`, `:feed`, and `:designsystem` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool), remote data sources for articles and weather, repository orchestration, feed use cases, MVI presentation contracts/ViewModels, Navigation 3, offline save behavior, the Compose UI/design-system layer, and the T8 hardening pass (see T8's post-review note below for a tap-target fix and the debounced-click addition made after the initial hardening commit).
+T0–T8 implementation work is complete. The repository has the `:app`, `:core`, `:feed`, and `:designsystem` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool), remote data sources for articles and weather, repository orchestration, feed use cases, MVI presentation contracts/ViewModels, Navigation 3, offline save behavior, the Compose UI/design-system layer, and the T8 hardening pass (see T8's post-review note below for a tap-target fix and the debounced-click addition made after the initial hardening commit). Automated gates are green; remaining manual verification gaps are documented in `README.md` → Known limitations.
 
-The T1 baseline was verified with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The exact compatibility pins are recorded in [`gradle/libs.versions.toml`](../gradle/libs.versions.toml).
+The current automated baseline was verified with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The exact compatibility pins are recorded in [`gradle/libs.versions.toml`](../gradle/libs.versions.toml).
 
 The implementation order is deliberately bottom-up: local/remote data and persistence first, orchestration next, MVI contracts after the data behavior is testable, and Compose UI last.
 
@@ -159,7 +159,7 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 ### T7 — Compose UI and token implementation
 
-**Status:** implementation complete on `feature/t7-compose-ui`; final emulator/manual verification remains part of the T7 gate.
+**Status:** implementation complete. Automated gates are green; remaining emulator/manual verification gaps are listed in `README.md` → Known limitations.
 
 **Style contract:** implement only the tokens and component contracts in `DESIGN.md` and `docs/DESIGN_TOKENS.md`; use Material 3 components and semantic theme roles; no raw colors, arbitrary dimensions, emoji icons, or external-reference imitation; preserve Android Back/insets and 48 dp targets.
 
@@ -171,9 +171,9 @@ Every task below follows the same loop. A task is not ready to implement until i
 - Use Coil loading/error placeholders for remote article images and bundled assets for service cards.
 - Add the independent `:designsystem` module with explicit Signal Desk light/dark roles, typography, shapes, dimensions, reusable state components, and previews; disable dynamic color so semantic roles remain stable across devices.
 - Render expanded-width `NavigationRail`, extract app/feed/design-system UI copy into string resources, and host Saved undo feedback in the app scaffold.
-- Keep UI tests optional until all required unit tests and build/lint checks are green; add focused Compose tests only for high-value semantics/navigation if time remains.
+- Keep UI tests optional until all required unit tests and build/lint checks are green; add focused Compose tests only for high-value semantics/navigation when the required behavior is stable.
 
-**Verification gate:** unit tests remain mandatory; perform emulator/manual checks for system Back, insets, font scale, light token mapping, offline banner, saved article offline detail, and compact/expanded navigation. The dark `ColorScheme` is implemented, but dark-role contrast is explicitly not verified in this slice. Capture evidence only after the flow works.
+**Verification gate:** unit tests remain mandatory. The manual checklist includes system Back, insets, font scale, light token mapping, offline banner, saved article offline detail, and compact/expanded navigation; the remaining unverified dark-role contrast and connectivity-transition gaps are listed in `README.md` → Known limitations. Capture evidence only after the flow works.
 
 **Commits:** focused C1–C12 Conventional Commits covering the design-system module/tokens/components, app shell, weather/feed/detail/Saved rendering, Saved Snackbar hoisting, expanded navigation, and string resources.
 
@@ -195,4 +195,4 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 ## Priority and cut line
 
-T1–T7 and the core portion of the hardening pass are the delivery line: paginated heterogeneous feed, detail, article save/unsave, offline saved access, freshness policy, explicit states, tokenized UI, and unit tests. Dark-role contrast audit, UI tests, animations, search/filter, and additional source types are cut or deferred if the delivery window tightens. Never cut the unit-test coverage for a completed data/presentation task to make room for optional UI polish.
+The release scope is the paginated heterogeneous feed, detail, article save/unsave, offline saved access, freshness policy, explicit states, tokenized UI, and unit tests. Dark-role contrast audit, UI tests, animations, search/filter, and additional source types are cut or deferred capabilities. Never cut the unit-test coverage for a completed data/presentation task to make room for optional UI polish.
