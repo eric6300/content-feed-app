@@ -2,7 +2,6 @@
 
 package com.eric.contentfeed.feed.presentation.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -50,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.ImageLoader
 import com.eric.contentfeed.core.connectivity.ConnectivityStatus
+import com.eric.contentfeed.core.ui.click
 import com.eric.contentfeed.designsystem.component.ArticleRowSkeleton
 import com.eric.contentfeed.designsystem.component.EmptyPanel
 import com.eric.contentfeed.designsystem.component.KeepAction
@@ -474,7 +474,7 @@ private fun FeedItemRow(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .clickable { onOpenArticle(item.value.id) },
+                        .click { onOpenArticle(item.value.id) },
                 overlineContent = {
                     SourceMark(source = item.value.source)
                 },
@@ -547,17 +547,19 @@ private fun FeedItemRow(
                     shape = MaterialTheme.shapes.large,
                     tonalElevation = dimens.elevationTonal1,
                 ) {
-                    Column {
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .click {
+                                    onOpenServiceCard(
+                                        item.value.poolIndex,
+                                        item.value.assignmentSequence,
+                                    )
+                                },
+                    ) {
                         Column(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onOpenServiceCard(
-                                            item.value.poolIndex,
-                                            item.value.assignmentSequence,
-                                        )
-                                    }.padding(dimens.space4),
+                            modifier = Modifier.fillMaxWidth().padding(dimens.space4),
                         ) {
                             FeedImage(
                                 model = item.value.imageAssetPath.toAssetUri(),
