@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -22,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -36,7 +39,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -49,6 +51,8 @@ import androidx.navigation3.ui.NavDisplay
 import com.eric.contentfeed.ForegroundCoordinator
 import com.eric.contentfeed.ForegroundEffect
 import com.eric.contentfeed.core.connectivity.ConnectivityStatus
+import com.eric.contentfeed.designsystem.component.StatusStrip
+import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
 import com.eric.contentfeed.feed.presentation.contract.ConnectivityContract
 import com.eric.contentfeed.feed.presentation.contract.DetailContract
 import com.eric.contentfeed.feed.presentation.contract.FeedContract
@@ -197,11 +201,30 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
 
     Scaffold(
         modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                val isSuccess = data.visuals.message == "Back online"
+                Snackbar(
+                    snackbarData = data,
+                    containerColor =
+                        if (isSuccess) {
+                            ContentFeedTheme.extendedColors.success
+                        } else {
+                            MaterialTheme.colorScheme.inverseSurface
+                        },
+                    contentColor =
+                        if (isSuccess) {
+                            ContentFeedTheme.extendedColors.onSuccess
+                        } else {
+                            MaterialTheme.colorScheme.inverseOnSurface
+                        },
+                )
+            }
+        },
         topBar = {
             if (isDetailScreen) {
                 TopAppBar(
-                    title = { Text("Detail") },
+                    title = { Text(activeBackStack.detailTitle()) },
                     navigationIcon = {
                         IconButton(onClick = { activeBackStack.removeLastOrNull() }) {
                             Icon(
@@ -209,6 +232,17 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                                 contentDescription = "Back",
                             )
                         }
+                    },
+                )
+            } else {
+                TopAppBar(
+                    title = {
+                        Text(
+                            when (selectedTab) {
+                                RootTab.Reading -> "Reading"
+                                RootTab.Saved -> "Saved"
+                            },
+                        )
                     },
                 )
             }
@@ -225,7 +259,12 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                                 selectedTab = RootTab.Reading
                             }
                         },
-                        icon = { Text("R") },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.AutoStories,
+                                contentDescription = "Reading",
+                            )
+                        },
                         label = { Text("Reading") },
                     )
                     NavigationBarItem(
@@ -237,7 +276,12 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                                 selectedTab = RootTab.Saved
                             }
                         },
-                        icon = { Text("S") },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Bookmarks,
+                                contentDescription = "Saved",
+                            )
+                        },
                         label = { Text("Saved") },
                     )
                 }
@@ -248,10 +292,8 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxSize().padding(innerPadding),
         ) {
             if (connectivityState.status == ConnectivityStatus.Offline) {
-                Text(
-                    text = "Offline",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(8.dp),
+                StatusStrip(
+                    message = "Offline. Cached content remains available.",
                 )
             }
             AnimatedContent(
@@ -335,6 +377,13 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
         }
     }
 }
+
+private fun List<NavKey>.detailTitle(): String =
+    when (lastOrNull()) {
+        is ContentFeedNavKey.ArticleDetail -> "Article"
+        is ContentFeedNavKey.ServiceCardDetail -> "Service"
+        else -> ""
+    }
 
 private fun ForegroundEffect.message(): String =
     when (this) {
