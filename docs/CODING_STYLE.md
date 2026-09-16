@@ -64,7 +64,8 @@ feed/
                   ArticleSortOrder.kt (the shared sort-key comparator both use)
   domain/usecase/ ObserveFeedUseCase.kt, RefreshFeedUseCase.kt, LoadNextArticlePageUseCase.kt —
                   the only layer ViewModels depend on for repository behavior
-  data/local/     FeedLocalDataSource.kt, RoomFeedLocalDataSource.kt, FeedCursorStore.kt
+  data/local/     FeedLocalDataSource.kt, RoomFeedLocalDataSource.kt, SavedImageStore.kt,
+                  CoilSavedImageStore.kt, FeedCursorStore.kt
                   (persisted pagination cursor, DataStore-backed — see note below), and
                   local-only mappers/parsers (JSON codecs, the bundled service-card catalog)
   data/remote/    ArticleRemoteDataSource.kt, WeatherRemoteDataSource.kt (interfaces + their
@@ -104,6 +105,12 @@ val feedModule = module {
 ```
 
 `viewModel { }` for view models, `single`/`factory` for everything else — no field injection, no service locators outside the Koin module definitions.
+
+### Images
+
+- `feedModule` owns one shared Coil `ImageLoader`, configured with the `:core` `OkHttpClient`; Compose image components always receive that loader explicitly.
+- Every remote article image request sets an explicit `diskCacheKey` equal to the article image URL so saved-image lookup is deterministic.
+- All app-internal saved-image file I/O goes through `SavedImageStore`. Copies live at `filesDir/saved_images/<articleId>.img`, never in Coil's cache directory.
 
 ## Testing
 

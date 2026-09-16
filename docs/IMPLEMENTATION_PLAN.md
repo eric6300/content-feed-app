@@ -4,7 +4,7 @@ Back to [README](../README.md) · [Spec](SPEC.md) · [Use Cases](USE_CASES.md) �
 
 ## Current state
 
-T0 is complete as documentation, and T1 and T2 are both complete and merged into `develop`. T3 is complete on `feature/t3-remote-data-sources`. The repository now has the `:app`, `:core`, and `:feed` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool), and the remote data sources for articles and weather with their DTO→domain mappers. No repositories/use cases or feature UI have been implemented yet.
+T0 is complete as documentation, and T1–T4 are complete and merged into `develop`. The repository now has the `:app`, `:core`, and `:feed` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool), remote data sources for articles and weather, repository orchestration, and feed use cases. T5 adds local saved-article commands, offline image copies, and undo finalization; feature UI remains for T6/T7.
 
 The T1 baseline was verified with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The exact compatibility decisions are recorded in [`DECISIONS.md`](../DECISIONS.md).
 
@@ -119,6 +119,8 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 ### T5 — Save, offline, and undo use cases
 
+**Status:** implementation complete on `feature/t5-save-offline-undo`; this section is synchronized with the shipped T5 behavior.
+
 **Style contract:** save behavior is article-only and expressed as explicit use-case commands; local persistence is authoritative; image copying is an injectable boundary and never blocks article text save; destructive cleanup is delayed behind an undo policy.
 
 **Work:**
@@ -127,7 +129,15 @@ Every task below follows the same loop. A task is not ready to implement until i
 - Persist saved article content and local image references; reuse an already-loaded image offline and tolerate an unavailable image cache.
 - Implement the brief undo window, scoped to Saved-list removals, and final local data/image deletion after expiry — including finalizing on reopen if the window lapsed while the app was closed, and tracking multiple pending undos independently.
 
-**Mandatory unit tests:** save from each entry point; offline save with/without cached image; cross-screen saved-state consistency; immediate feed/detail unsave with no undo; Saved-list undo restore; timeout finalization; pending undo surviving app restart; independent concurrent undos; Saved list empty/populated/offline reads/most-recently-saved ordering.
+**Fixed decisions:** finalization clears save state and deletes the saved image while retaining the cached article row for the 7-day prune; the visible undo window is 5 seconds with a 1-second persisted grace period; reopening the app finalizes every pending removal regardless of its remaining deadline; saved-image files are addressed by article id under app-internal storage; and a cache miss never starts a network fetch or fails the save.
+
+**Mandatory unit tests:** save from each entry point; offline save with/without cached image; cross-screen saved-state consistency; immediate feed/detail unsave with no undo; Saved-list undo restore; timeout finalization; restart finalization regardless of remaining deadline; independent concurrent undos; Saved list empty/populated/offline reads/most-recently-saved ordering.
+
+**Verification:** `:core`/`:feed` ktlint and JVM unit tests are green; the Room DAO additions are covered by the existing emulator-only `:core` instrumented suite; full `./gradlew build` is the required Android Lint gate for Coil and file I/O. The known limitation is that T5 has no main-source-set writer to Coil's disk cache, so real-app image copies miss until T7 renders remote images with an explicit `diskCacheKey`.
+
+**T6 obligation:** call `FinalizePendingUnsavesUseCase(AppStart)` from the composition root on foreground and `UndoWindowElapsed(articleId)` when each undo Snackbar is dismissed. Dismissal explicitly finalizes only that pending article; the persisted 1-second grace remains the deadline guard for late undo and the restart/fallback sweep. Because `lifecycle-process` is not currently pinned, T6 must either add it for real foreground transitions or accept `MainActivity.onStart` and its configuration-change trade-off.
+
+**T7 obligation:** every remote image request must set `diskCacheKey(article.imageUrl)`; `localImagePath != null` renders from `File(path)`, while null renders a placeholder.
 
 **Commit:** `feat: add offline article saving`.
 
