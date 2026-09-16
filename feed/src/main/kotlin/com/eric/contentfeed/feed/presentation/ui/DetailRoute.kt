@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.ImageLoader
 import com.eric.contentfeed.designsystem.component.EmptyPanel
@@ -28,6 +29,7 @@ import com.eric.contentfeed.designsystem.component.KeepAction
 import com.eric.contentfeed.designsystem.component.SourceMark
 import com.eric.contentfeed.designsystem.component.StatusStrip
 import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
+import com.eric.contentfeed.feed.R
 import com.eric.contentfeed.feed.presentation.contract.DetailContract
 import com.eric.contentfeed.feed.presentation.format.formatPrice
 import com.eric.contentfeed.feed.presentation.format.formatPublishedDate
@@ -67,7 +69,7 @@ fun DetailRoute(
                 )
             DetailContract.ContentState.NotFound ->
                 EmptyPanel(
-                    message = "This item is no longer available.",
+                    message = stringResource(R.string.detail_not_found),
                 )
             is DetailContract.ContentState.Ready -> {
                 DetailContent(
@@ -91,6 +93,7 @@ private fun DetailContent(
     onOpenExternal: () -> Unit,
 ) {
     val dimens = ContentFeedTheme.dimens
+    val dateUnknownLabel = stringResource(R.string.date_unknown)
     Column {
         when (content) {
             is DetailUiModel.Article -> {
@@ -116,19 +119,32 @@ private fun DetailContent(
                 Column(verticalArrangement = Arrangement.spacedBy(dimens.space1)) {
                     if (content.value.authors.isNotEmpty()) {
                         Text(
-                            text = "By ${content.value.authors.joinToString(", ")}",
+                            text =
+                                stringResource(
+                                    R.string.detail_by,
+                                    content.value.authors.joinToString(", "),
+                                ),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                     Text(
-                        text = "Published ${formatPublishedDate(content.value.publishedAtEpochMillis)}",
+                        text =
+                            stringResource(
+                                R.string.detail_published,
+                                formatPublishedDate(
+                                    content.value.publishedAtEpochMillis,
+                                    unknownLabel = dateUnknownLabel,
+                                ),
+                            ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Spacer(modifier = Modifier.height(dimens.space5))
                 Text(
-                    text = content.value.summary ?: "No summary available.",
+                    text =
+                        content.value.summary
+                            ?: stringResource(R.string.article_summary_unavailable),
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 Spacer(modifier = Modifier.height(dimens.space6))
@@ -139,11 +155,17 @@ private fun DetailContent(
                     KeepAction(
                         isKept = content.value.isSaved,
                         contentDescription =
-                            if (content.value.isSaved) "Remove from saved" else "Save article",
+                            stringResource(
+                                if (content.value.isSaved) {
+                                    R.string.article_remove_from_saved
+                                } else {
+                                    R.string.article_save
+                                },
+                            ),
                         onClick = onToggleSave,
                     )
                     TextButton(enabled = !isOffline, onClick = onOpenExternal) {
-                        Text("Read source")
+                        Text(stringResource(R.string.detail_read_source))
                     }
                 }
             }
@@ -167,16 +189,21 @@ private fun DetailContent(
                 Text(content.value.description, style = MaterialTheme.typography.bodyLarge)
                 Spacer(modifier = Modifier.height(dimens.space2))
                 Text(
-                    text = content.value.price?.let { "Price: ${formatPrice(it)}" } ?: "Price unavailable",
+                    text =
+                        content.value.price?.let {
+                            stringResource(R.string.detail_price, formatPrice(it))
+                        } ?: stringResource(R.string.detail_price_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(modifier = Modifier.height(dimens.space5))
-                Button(enabled = !isOffline, onClick = onOpenExternal) { Text("View service") }
+                Button(enabled = !isOffline, onClick = onOpenExternal) {
+                    Text(stringResource(R.string.service_view))
+                }
             }
         }
         if (isOffline) {
             StatusStrip(
-                message = "Offline: saved content remains available on this device.",
+                message = stringResource(R.string.detail_offline_saved),
                 modifier = Modifier.padding(top = dimens.space4),
             )
         }

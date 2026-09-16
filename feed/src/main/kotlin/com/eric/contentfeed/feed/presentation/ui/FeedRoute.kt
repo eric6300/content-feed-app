@@ -55,6 +55,7 @@ import com.eric.contentfeed.designsystem.component.ScopedErrorPanel
 import com.eric.contentfeed.designsystem.component.SourceMark
 import com.eric.contentfeed.designsystem.component.WeatherPanelSkeleton
 import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
+import com.eric.contentfeed.feed.R
 import com.eric.contentfeed.feed.domain.model.RemoteFailure
 import com.eric.contentfeed.feed.presentation.contract.FeedContract
 import com.eric.contentfeed.feed.presentation.format.formatPrice
@@ -127,15 +128,14 @@ fun FeedRoute(
                 FeedContract.ArticleStreamState.Empty ->
                     item(key = "articles-empty") {
                         EmptyPanel(
-                            message = "No articles are available yet.",
+                            message = stringResource(R.string.feed_empty_articles),
                             modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
                         )
                     }
                 FeedContract.ArticleStreamState.OfflineEmpty ->
                     item(key = "articles-offline") {
                         EmptyPanel(
-                            message =
-                                "You are offline. Previously loaded articles will appear here when available.",
+                            message = stringResource(R.string.feed_offline_articles),
                             modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
                         )
                     }
@@ -143,7 +143,7 @@ fun FeedRoute(
                     item(key = "articles-error") {
                         ScopedErrorPanel(
                             message = errorMessage(articles.cause),
-                            retryLabel = "Retry",
+                            retryLabel = stringResource(R.string.action_retry),
                             onRetry = { viewModel.onEvent(FeedContract.Event.Refresh) },
                             modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
                         )
@@ -153,7 +153,7 @@ fun FeedRoute(
                         item(key = "articles-refresh-error") {
                             ScopedErrorPanel(
                                 message = errorMessage(failure),
-                                retryLabel = "Retry",
+                                retryLabel = stringResource(R.string.action_retry),
                                 onRetry = { viewModel.onEvent(FeedContract.Event.Refresh) },
                                 modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
                             )
@@ -222,7 +222,7 @@ private fun FeedHeader() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "Reading",
+            text = stringResource(R.string.feed_title_reading),
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.weight(1f),
         )
@@ -238,7 +238,7 @@ private fun WeatherSection(
         FeedContract.WeatherState.Loading -> WeatherPanelSkeleton()
         FeedContract.WeatherState.Empty ->
             EmptyPanel(
-                message = "Weather is unavailable.",
+                message = stringResource(R.string.weather_unavailable),
                 modifier =
                     Modifier.padding(
                         horizontal = ContentFeedTheme.dimens.space4,
@@ -248,7 +248,7 @@ private fun WeatherSection(
         is FeedContract.WeatherState.Error ->
             ScopedErrorPanel(
                 message = errorMessage(state.cause),
-                retryLabel = "Retry",
+                retryLabel = stringResource(R.string.action_retry),
                 onRetry = onRetry,
                 modifier =
                     Modifier.padding(
@@ -274,13 +274,16 @@ private fun WeatherSection(
                     ),
             ) {
                 Column(modifier = Modifier.padding(ContentFeedTheme.dimens.space4)) {
-                    Text("Weather", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.weather_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
                     Spacer(modifier = Modifier.height(ContentFeedTheme.dimens.space3))
                     WeatherContent(state.value)
                     state.error?.let { failure ->
                         ScopedErrorPanel(
                             message = errorMessage(failure),
-                            retryLabel = "Retry",
+                            retryLabel = stringResource(R.string.action_retry),
                             onRetry = onRetry,
                             modifier = Modifier.padding(top = ContentFeedTheme.dimens.space3),
                         )
@@ -296,6 +299,11 @@ private fun WeatherContent(weather: WeatherUiModel) {
     val dimens = ContentFeedTheme.dimens
     val conditionDisplay = weather.condition.display()
     val conditionLabel = stringResource(conditionDisplay.labelRes)
+    val unavailableValue = stringResource(R.string.value_unavailable)
+    val temperatureLabel =
+        weather.temperatureCelsius?.let {
+            stringResource(R.string.weather_temperature_celsius, it.toInt())
+        } ?: unavailableValue
     Column(verticalArrangement = Arrangement.spacedBy(dimens.space3)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -303,13 +311,13 @@ private fun WeatherContent(weather: WeatherUiModel) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = weather.temperatureCelsius?.let { "${it.toInt()}°C" } ?: "—",
+                text = temperatureLabel,
                 style = MaterialTheme.typography.displaySmall,
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(conditionLabel)
                 Text(
-                    text = "Local conditions",
+                    text = stringResource(R.string.weather_local_conditions),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -325,18 +333,27 @@ private fun WeatherContent(weather: WeatherUiModel) {
             horizontalArrangement = Arrangement.spacedBy(dimens.space3),
         ) {
             WeatherMeasure(
-                label = "Feels like",
-                value = weather.apparentTemperatureCelsius?.let { "${it.toInt()}°C" } ?: "—",
+                label = stringResource(R.string.weather_feels_like),
+                value =
+                    weather.apparentTemperatureCelsius?.let {
+                        stringResource(R.string.weather_temperature_celsius, it.toInt())
+                    } ?: unavailableValue,
                 modifier = Modifier.weight(1f),
             )
             WeatherMeasure(
-                label = "Wind",
-                value = weather.windSpeedKmh?.let { "${it.toInt()} km/h" } ?: "—",
+                label = stringResource(R.string.weather_wind),
+                value =
+                    weather.windSpeedKmh?.let {
+                        stringResource(R.string.weather_wind_speed, it.toInt())
+                    } ?: unavailableValue,
                 modifier = Modifier.weight(1f),
             )
         }
         if (weather.forecast.isNotEmpty()) {
-            Text("Forecast", style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.weather_forecast),
+                style = MaterialTheme.typography.titleMedium,
+            )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(dimens.space2)) {
                 items(weather.forecast) { forecast ->
                     ForecastItem(forecast)
@@ -366,6 +383,9 @@ private fun WeatherMeasure(
 private fun ForecastItem(forecast: WeatherForecastUiModel) {
     val dimens = ContentFeedTheme.dimens
     val conditionLabel = stringResource(forecast.condition.display().labelRes)
+    val unavailableValue = stringResource(R.string.value_unavailable)
+    val maximum = forecast.temperatureMaxCelsius?.toInt()?.toString() ?: unavailableValue
+    val minimum = forecast.temperatureMinCelsius?.toInt()?.toString() ?: unavailableValue
     Column(
         modifier = Modifier.width(dimens.weatherForecastItemWidth),
         verticalArrangement = Arrangement.spacedBy(dimens.space1),
@@ -376,13 +396,14 @@ private fun ForecastItem(forecast: WeatherForecastUiModel) {
             style = MaterialTheme.typography.bodyMedium,
         )
         Text(
-            text =
-                "${forecast.temperatureMaxCelsius?.toInt() ?: "—"}° / " +
-                    "${forecast.temperatureMinCelsius?.toInt() ?: "—"}°",
+            text = stringResource(R.string.weather_temperature_range, maximum, minimum),
             style = MaterialTheme.typography.labelLarge,
         )
         forecast.precipitationProbability?.let { probability ->
-            Text("Rain $probability%", style = MaterialTheme.typography.labelSmall)
+            Text(
+                stringResource(R.string.weather_rain_probability, probability),
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
     }
 }
@@ -410,6 +431,7 @@ private fun FeedItemRow(
     onToggleSave: (Int) -> Unit,
 ) {
     val dimens = ContentFeedTheme.dimens
+    val dateUnknownLabel = stringResource(R.string.date_unknown)
     when (item) {
         is FeedItemUiModel.Article ->
             ListItem(
@@ -432,11 +454,17 @@ private fun FeedItemRow(
                 supportingContent = {
                     Column(verticalArrangement = Arrangement.spacedBy(dimens.space1)) {
                         Text(
-                            text = item.value.summary ?: "No summary available.",
+                            text =
+                                item.value.summary
+                                    ?: stringResource(R.string.article_summary_unavailable),
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Text(
-                            text = formatPublishedDate(item.value.publishedAtEpochMillis),
+                            text =
+                                formatPublishedDate(
+                                    item.value.publishedAtEpochMillis,
+                                    unknownLabel = dateUnknownLabel,
+                                ),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -446,7 +474,13 @@ private fun FeedItemRow(
                     KeepAction(
                         isKept = item.value.isSaved,
                         contentDescription =
-                            if (item.value.isSaved) "Remove from saved" else "Save article",
+                            stringResource(
+                                if (item.value.isSaved) {
+                                    R.string.article_remove_from_saved
+                                } else {
+                                    R.string.article_save
+                                },
+                            ),
                         onClick = { onToggleSave(item.value.id) },
                     )
                 },
@@ -487,7 +521,11 @@ private fun FeedItemRow(
                         item.value.price?.let { price ->
                             Spacer(modifier = Modifier.height(dimens.space2))
                             Text(
-                                text = "Price ${formatPrice(price)}",
+                                text =
+                                    stringResource(
+                                        R.string.service_price,
+                                        formatPrice(price),
+                                    ),
                                 style = MaterialTheme.typography.labelLarge,
                             )
                         }
@@ -495,7 +533,7 @@ private fun FeedItemRow(
                         Button(
                             enabled = canOpenExternalLinks,
                             onClick = { onOpenExternalLink(item.value.targetUrl) },
-                        ) { Text("View service") }
+                        ) { Text(stringResource(R.string.service_view)) }
                     }
                 }
             }
@@ -519,13 +557,13 @@ private fun PaginationFooter(
         is FeedContract.PaginationState.RetryableError ->
             ScopedErrorPanel(
                 message = errorMessage(state.cause),
-                retryLabel = "Retry",
+                retryLabel = stringResource(R.string.action_retry),
                 onRetry = onRetry,
                 modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
             )
         FeedContract.PaginationState.End ->
             Text(
-                text = "You are all caught up.",
+                text = stringResource(R.string.pagination_caught_up),
                 modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
                 style = MaterialTheme.typography.labelMedium,
             )
@@ -540,9 +578,10 @@ private val FeedItemUiModel.key: String
                 "service-${value.poolIndex}-${value.assignmentSequence}"
         }
 
+@Composable
 private fun errorMessage(failure: RemoteFailure): String =
     when (failure) {
-        RemoteFailure.NetworkUnavailable -> "Network unavailable."
-        is RemoteFailure.Http -> "The service returned HTTP ${failure.code}."
-        RemoteFailure.Unknown -> "Something went wrong."
+        RemoteFailure.NetworkUnavailable -> stringResource(R.string.error_network_unavailable)
+        is RemoteFailure.Http -> stringResource(R.string.error_http, failure.code)
+        RemoteFailure.Unknown -> stringResource(R.string.error_unknown)
     }

@@ -1,3 +1,17 @@
 <resources>
     <string name="app_name">Content Feed</string>
+    <string name="nav_reading">Reading</string>
+    <string name="nav_saved">Saved</string>
+    <string name="screen_title_article">Article</string>
+    <string name="screen_title_service">Service</string>
+    <string name="action_back">Back</string>
+    <string name="status_offline_cached">Offline. Cached content remains available.</string>
+    <string name="snackbar_back_online">Back online</string>
+    <string name="snackbar_removed_from_saved">Removed from Saved</string>
+    <string name="action_undo">Undo</string>
+    <string name="snackbar_already_removed">That article was already removed.</string>
+    <string name="snackbar_external_link_requires_connection">External links require a connection.</string>
+    <string name="snackbar_no_browser_available">No browser is available for this link.</string>
+    <string name="snackbar_articles_refresh_failed">Articles could not refresh. Cached content remains available.</string>
+    <string name="snackbar_weather_refresh_failed">Weather could not refresh. Cached content remains available.</string>
 </resources>

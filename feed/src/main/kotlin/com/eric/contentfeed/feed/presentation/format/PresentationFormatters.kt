@@ -9,7 +9,7 @@ import java.util.Locale
 
 internal fun formatPublishedDate(
     epochMillis: Long?,
-    unknownLabel: String = "date unknown",
+    unknownLabel: String,
     locale: Locale = Locale.getDefault(),
 ): String {
     if (epochMillis == null) return unknownLabel

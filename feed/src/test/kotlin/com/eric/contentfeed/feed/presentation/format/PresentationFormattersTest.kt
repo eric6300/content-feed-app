@@ -7,7 +7,7 @@ import java.util.Locale
 class PresentationFormattersTest {
     @Test
     fun formatsMissingPublishedDateAsDateUnknown() {
-        assertEquals("date unknown", formatPublishedDate(null))
+        assertEquals("date unknown", formatPublishedDate(null, unknownLabel = "date unknown"))
     }
 
     @Test

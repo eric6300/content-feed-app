@@ -21,12 +21,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.ImageLoader
 import com.eric.contentfeed.designsystem.component.EmptyPanel
 import com.eric.contentfeed.designsystem.component.LedgerDivider
 import com.eric.contentfeed.designsystem.component.SourceMark
 import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
+import com.eric.contentfeed.feed.R
 import com.eric.contentfeed.feed.presentation.contract.SavedContract
 import com.eric.contentfeed.feed.presentation.format.formatPublishedDate
 import com.eric.contentfeed.feed.presentation.viewmodel.SavedViewModel
@@ -40,6 +42,7 @@ fun SavedRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val imageLoader: ImageLoader = koinInject()
+    val dateUnknownLabel = stringResource(R.string.date_unknown)
 
     Column(modifier = modifier.fillMaxSize()) {
         when (val content = state.content) {
@@ -49,7 +52,7 @@ fun SavedRoute(
                 )
             SavedContract.ContentState.Empty ->
                 EmptyPanel(
-                    message = "No saved articles yet.",
+                    message = stringResource(R.string.saved_empty),
                     modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
                 )
             is SavedContract.ContentState.Ready ->
@@ -78,7 +81,11 @@ fun SavedRoute(
                             },
                             supportingContent = {
                                 Text(
-                                    text = formatPublishedDate(article.publishedAtEpochMillis),
+                                    text =
+                                        formatPublishedDate(
+                                            article.publishedAtEpochMillis,
+                                            unknownLabel = dateUnknownLabel,
+                                        ),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -92,7 +99,7 @@ fun SavedRoute(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.DeleteOutline,
-                                        contentDescription = "Remove from saved",
+                                        contentDescription = stringResource(R.string.saved_remove),
                                     )
                                 }
                             },

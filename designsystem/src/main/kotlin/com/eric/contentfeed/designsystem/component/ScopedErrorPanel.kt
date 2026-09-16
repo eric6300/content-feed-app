@@ -16,7 +16,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import com.eric.contentfeed.designsystem.R
 import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
 
 @Composable
@@ -61,8 +63,8 @@ fun ScopedErrorPanel(
 private fun ScopedErrorPanelPreview() {
     ContentFeedTheme {
         ScopedErrorPanel(
-            message = "The latest update could not be loaded.",
-            retryLabel = "Retry",
+            message = stringResource(R.string.designsystem_preview_error),
+            retryLabel = stringResource(R.string.designsystem_preview_retry),
             onRetry = {},
         )
     }

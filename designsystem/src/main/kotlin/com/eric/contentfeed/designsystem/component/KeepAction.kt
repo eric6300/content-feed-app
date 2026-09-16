@@ -10,7 +10,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import com.eric.contentfeed.designsystem.R
 import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
 
 @Composable
@@ -38,7 +40,7 @@ private fun KeepActionPreview() {
     ContentFeedTheme {
         KeepAction(
             isKept = true,
-            contentDescription = "Remove from saved",
+            contentDescription = stringResource(R.string.designsystem_preview_remove_saved),
             onClick = {},
         )
     }

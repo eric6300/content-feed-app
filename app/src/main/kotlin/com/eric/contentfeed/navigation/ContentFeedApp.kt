@@ -47,6 +47,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -58,6 +59,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.eric.contentfeed.ForegroundCoordinator
 import com.eric.contentfeed.ForegroundEffect
+import com.eric.contentfeed.R
 import com.eric.contentfeed.core.connectivity.ConnectivityStatus
 import com.eric.contentfeed.designsystem.component.StatusStrip
 import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
@@ -86,6 +88,9 @@ private enum class RootTab {
 @Composable
 fun ContentFeedApp(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val readingLabel = stringResource(R.string.nav_reading)
+    val savedLabel = stringResource(R.string.nav_saved)
+    val backOnlineMessage = stringResource(R.string.snackbar_back_online)
     val isExpandedWidth =
         (context as? Activity)?.let { activity ->
             calculateWindowSizeClass(activity).widthSizeClass == WindowWidthSizeClass.Expanded
@@ -109,14 +114,14 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
         connectivityViewModel.effects.collectLatest { effect ->
             when (effect) {
                 ConnectivityContract.Effect.BackOnline ->
-                    snackbarHostState.showSnackbar("Back online")
+                    snackbarHostState.showSnackbar(backOnlineMessage)
             }
         }
     }
 
     LaunchedEffect(foregroundCoordinator) {
         foregroundCoordinator.effects.collect { effect ->
-            snackbarHostState.showSnackbar(effect.message())
+            snackbarHostState.showSnackbar(effect.message(context))
         }
     }
 
@@ -128,8 +133,8 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                 is SavedContract.Effect.ShowUndo -> {
                     val result =
                         snackbarHostState.showSnackbar(
-                            message = "Removed from Saved",
-                            actionLabel = "Undo",
+                            message = context.getString(R.string.snackbar_removed_from_saved),
+                            actionLabel = context.getString(R.string.action_undo),
                         )
                     if (result == SnackbarResult.ActionPerformed) {
                         savedViewModel.onEvent(
@@ -146,7 +151,9 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                     }
                 }
                 SavedContract.Effect.UndoUnavailable ->
-                    snackbarHostState.showSnackbar("That article was already removed.")
+                    snackbarHostState.showSnackbar(
+                        context.getString(R.string.snackbar_already_removed),
+                    )
             }
         }
     }
@@ -174,7 +181,11 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                                 }
                             FeedContract.Effect.ExternalLinkUnavailable ->
                                 scope.launch {
-                                    snackbarHostState.showSnackbar("External links require a connection.")
+                                    snackbarHostState.showSnackbar(
+                                        context.getString(
+                                            R.string.snackbar_external_link_requires_connection,
+                                        ),
+                                    )
                                 }
                             is FeedContract.Effect.SourceRefreshFailed -> Unit
                         }
@@ -241,7 +252,7 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
         modifier = modifier,
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
-                val isSuccess = data.visuals.message == "Back online"
+                val isSuccess = data.visuals.message == backOnlineMessage
                 Snackbar(
                     snackbarData = data,
                     containerColor =
@@ -262,12 +273,12 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
         topBar = {
             if (isDetailScreen) {
                 TopAppBar(
-                    title = { Text(activeBackStack.detailTitle()) },
+                    title = { Text(stringResource(activeBackStack.detailTitleRes())) },
                     navigationIcon = {
                         IconButton(onClick = { activeBackStack.removeLastOrNull() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.action_back),
                             )
                         }
                     },
@@ -277,8 +288,8 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                     title = {
                         Text(
                             when (selectedTab) {
-                                RootTab.Reading -> "Reading"
-                                RootTab.Saved -> "Saved"
+                                RootTab.Reading -> readingLabel
+                                RootTab.Saved -> savedLabel
                             },
                         )
                     },
@@ -300,10 +311,10 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                         icon = {
                             Icon(
                                 imageVector = Icons.Outlined.AutoStories,
-                                contentDescription = "Reading",
+                                contentDescription = readingLabel,
                             )
                         },
-                        label = { Text("Reading") },
+                        label = { Text(readingLabel) },
                     )
                     NavigationBarItem(
                         selected = selectedTab == RootTab.Saved,
@@ -317,10 +328,10 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                         icon = {
                             Icon(
                                 imageVector = Icons.Outlined.Bookmarks,
-                                contentDescription = "Saved",
+                                contentDescription = savedLabel,
                             )
                         },
-                        label = { Text("Saved") },
+                        label = { Text(savedLabel) },
                     )
                 }
             }
@@ -331,7 +342,7 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
         ) {
             if (connectivityState.status == ConnectivityStatus.Offline) {
                 StatusStrip(
-                    message = "Offline. Cached content remains available.",
+                    message = stringResource(R.string.status_offline_cached),
                 )
             }
             Row(modifier = Modifier.weight(1f)) {
@@ -349,10 +360,10 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                             icon = {
                                 Icon(
                                     imageVector = Icons.Outlined.AutoStories,
-                                    contentDescription = "Reading",
+                                    contentDescription = readingLabel,
                                 )
                             },
-                            label = { Text("Reading") },
+                            label = { Text(readingLabel) },
                         )
                         NavigationRailItem(
                             selected = selectedTab == RootTab.Saved,
@@ -366,10 +377,10 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                             icon = {
                                 Icon(
                                     imageVector = Icons.Outlined.Bookmarks,
-                                    contentDescription = "Saved",
+                                    contentDescription = savedLabel,
                                 )
                             },
-                            label = { Text("Saved") },
+                            label = { Text(savedLabel) },
                         )
                     }
                 }
@@ -456,28 +467,22 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
     }
 }
 
-private fun List<NavKey>.detailTitle(): String =
+private fun List<NavKey>.detailTitleRes(): Int =
     when (lastOrNull()) {
-        is ContentFeedNavKey.ArticleDetail -> "Article"
-        is ContentFeedNavKey.ServiceCardDetail -> "Service"
-        else -> ""
+        is ContentFeedNavKey.ArticleDetail -> R.string.screen_title_article
+        is ContentFeedNavKey.ServiceCardDetail -> R.string.screen_title_service
+        else -> R.string.app_name
     }
 
-private fun ForegroundEffect.message(): String =
+private fun ForegroundEffect.message(context: Context): String =
     when (this) {
         is ForegroundEffect.SourceRefreshFailed ->
-            refreshFailureMessage(
+            context.getString(
                 when (source) {
-                    ForegroundEffect.Source.Articles -> FeedContract.Source.Articles
-                    ForegroundEffect.Source.Weather -> FeedContract.Source.Weather
+                    ForegroundEffect.Source.Articles -> R.string.snackbar_articles_refresh_failed
+                    ForegroundEffect.Source.Weather -> R.string.snackbar_weather_refresh_failed
                 },
             )
-    }
-
-private fun refreshFailureMessage(source: FeedContract.Source): String =
-    when (source) {
-        FeedContract.Source.Articles -> "Articles could not refresh. Cached content remains available."
-        FeedContract.Source.Weather -> "Weather could not refresh. Cached content remains available."
     }
 
 private fun handleDetailEffect(
@@ -488,7 +493,7 @@ private fun handleDetailEffect(
     when (effect) {
         is DetailContract.Effect.OpenExternalUrl -> context.openExternalUrl(effect.url, onMessage)
         DetailContract.Effect.ExternalLinkUnavailable ->
-            onMessage("External links require a connection.")
+            onMessage(context.getString(R.string.snackbar_external_link_requires_connection))
     }
 }
 
@@ -499,6 +504,6 @@ private fun Context.openExternalUrl(
     try {
         CustomTabsIntent.Builder().build().launchUrl(this, url.toUri())
     } catch (_: ActivityNotFoundException) {
-        onUnavailable("No browser is available for this link.")
+        onUnavailable(getString(R.string.snackbar_no_browser_available))
     }
 }

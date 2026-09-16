@@ -1,0 +1,8 @@
+<resources>
+    <string name="designsystem_preview_source">Orbital Desk</string>
+    <string name="designsystem_preview_offline">Offline. Cached content remains available.</string>
+    <string name="designsystem_preview_error">The latest update could not be loaded.</string>
+    <string name="designsystem_preview_retry">Retry</string>
+    <string name="designsystem_preview_empty">No saved items yet.</string>
+    <string name="designsystem_preview_remove_saved">Remove from saved</string>
+</resources>

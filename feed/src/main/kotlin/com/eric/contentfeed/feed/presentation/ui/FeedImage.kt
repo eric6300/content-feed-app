@@ -12,10 +12,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import coil3.ImageLoader
 import coil3.compose.LocalPlatformContext
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
+import com.eric.contentfeed.feed.R
 
 @Composable
 internal fun FeedImage(
@@ -27,7 +29,7 @@ internal fun FeedImage(
 ) {
     if (model == null) {
         ImagePlaceholder(
-            message = "No image available",
+            message = stringResource(R.string.image_no_available),
             modifier = modifier,
         )
     } else {
@@ -47,10 +49,16 @@ internal fun FeedImage(
             contentScale = ContentScale.Crop,
             modifier = modifier,
             loading = {
-                ImagePlaceholder("Loading image", Modifier.fillMaxSize())
+                ImagePlaceholder(
+                    stringResource(R.string.image_loading),
+                    Modifier.fillMaxSize(),
+                )
             },
             error = {
-                ImagePlaceholder("Image unavailable", Modifier.fillMaxSize())
+                ImagePlaceholder(
+                    stringResource(R.string.image_unavailable),
+                    Modifier.fillMaxSize(),
+                )
             },
         )
     }

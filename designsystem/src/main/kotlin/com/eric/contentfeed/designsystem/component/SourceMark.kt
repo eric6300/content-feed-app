@@ -8,7 +8,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import com.eric.contentfeed.designsystem.R
 import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
 import com.eric.contentfeed.designsystem.theme.SignalPillShape
 
@@ -39,6 +41,6 @@ fun SourceMark(
 @Composable
 private fun SourceMarkPreview() {
     ContentFeedTheme {
-        SourceMark(source = "Orbital Desk")
+        SourceMark(source = stringResource(R.string.designsystem_preview_source))
     }
 }
