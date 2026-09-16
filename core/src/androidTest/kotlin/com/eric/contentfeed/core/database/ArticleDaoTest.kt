@@ -216,6 +216,100 @@ class ArticleDaoTest {
             assertEquals(1, dao.saveArticle(articleId = 1, savedAtEpochMillis = 20, localImagePath = null))
         }
 
+    @Test
+    fun attachLocalImagePathChangesOnlyTheImageAndPreservesSavedListOrder() =
+        runTest {
+            dao.upsertRemoteArticles(listOf(article(id = 1), article(id = 2)))
+            dao.saveArticle(articleId = 1, savedAtEpochMillis = 100, localImagePath = null)
+            dao.saveArticle(articleId = 2, savedAtEpochMillis = 200, localImagePath = null)
+
+            assertEquals(1, dao.attachLocalImagePath(1, "saved/1.img"))
+
+            assertEquals(listOf(2, 1), dao.observeSavedArticles().first().map { it.id })
+            val attached = dao.observeArticle(1).first()!!
+            assertEquals("saved/1.img", attached.localImagePath)
+            assertEquals(100L, attached.savedAtEpochMillis)
+            assertTrue(attached.isSaved)
+        }
+
+    @Test
+    fun attachLocalImagePathIsRejectedAfterTheArticleIsNoLongerSaved() =
+        runTest {
+            dao.upsertRemoteArticles(listOf(article(id = 1)))
+            dao.saveArticle(articleId = 1, savedAtEpochMillis = 100, localImagePath = null)
+            dao.unsaveImmediate(1)
+
+            assertEquals(0, dao.attachLocalImagePath(1, "saved/1.img"))
+            assertNull(dao.observeArticle(1).first()!!.localImagePath)
+        }
+
+    @Test
+    fun attachLocalImagePathStillWorksWhileRemovalIsPending() =
+        runTest {
+            dao.upsertRemoteArticles(listOf(article(id = 1)))
+            dao.saveArticle(articleId = 1, savedAtEpochMillis = 100, localImagePath = null)
+            dao.markPendingUnsave(articleId = 1, deadlineEpochMillis = 200)
+
+            assertEquals(1, dao.attachLocalImagePath(1, "saved/1.img"))
+            assertEquals("saved/1.img", dao.observeArticle(1).first()!!.localImagePath)
+        }
+
+    @Test
+    fun finalizeAllPendingUnsavesClearsEveryPendingRowButLeavesRowsInTheCache() =
+        runTest {
+            dao.upsertRemoteArticles(listOf(article(id = 1), article(id = 2), article(id = 3)))
+            dao.saveArticle(articleId = 1, savedAtEpochMillis = 100, localImagePath = "saved/1.img")
+            dao.saveArticle(articleId = 2, savedAtEpochMillis = 200, localImagePath = "saved/2.img")
+            dao.saveArticle(articleId = 3, savedAtEpochMillis = 300, localImagePath = null)
+            dao.markPendingUnsave(articleId = 1, deadlineEpochMillis = Long.MAX_VALUE)
+            dao.markPendingUnsave(articleId = 2, deadlineEpochMillis = 1)
+
+            val finalized = dao.finalizeAllPendingUnsaves()
+
+            assertEquals(listOf(1, 2), finalized.map { it.id }.sorted())
+            assertEquals(listOf(1, 2, 3), dao.observeArticles().first().map { it.id })
+            assertTrue(!dao.observeArticle(1).first()!!.isSaved)
+            assertTrue(!dao.observeArticle(2).first()!!.isSaved)
+            assertTrue(dao.observeArticle(3).first()!!.isSaved)
+            assertEquals(
+                emptyList<Int>(),
+                dao
+                    .observeSavedArticles()
+                    .first()
+                    .map { it.id }
+                    .filter { it != 3 },
+            )
+        }
+
+    @Test
+    fun finalizedRowsBecomeEligibleForUnsavedRetentionPrune() =
+        runTest {
+            dao.upsertRemoteArticles(listOf(article(id = 1, fetchedAt = 10)))
+            dao.saveArticle(articleId = 1, savedAtEpochMillis = 20, localImagePath = "saved/1.img")
+            dao.markPendingUnsave(articleId = 1, deadlineEpochMillis = Long.MAX_VALUE)
+
+            dao.finalizeAllPendingUnsaves()
+
+            assertEquals(1, dao.deleteUnsavedOlderThan(cutoffEpochMillis = 100))
+            assertNull(dao.observeArticle(1).first())
+        }
+
+    @Test
+    fun savedStateIsVisibleToFeedAndSavedQueriesFromTheSameRoomRow() =
+        runTest {
+            dao.upsertRemoteArticles(listOf(article(id = 1)))
+            dao.saveArticle(articleId = 1, savedAtEpochMillis = 100, localImagePath = null)
+
+            assertTrue(
+                dao
+                    .observeArticles()
+                    .first()
+                    .single()
+                    .isSaved,
+            )
+            assertEquals(listOf(1), dao.observeSavedArticles().first().map { it.id })
+        }
+
     private fun article(
         id: Int,
         publishedAt: Long? = 100,

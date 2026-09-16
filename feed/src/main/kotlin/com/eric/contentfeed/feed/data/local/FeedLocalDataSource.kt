@@ -55,6 +55,13 @@ interface FeedLocalDataSource {
         localImagePath: String?,
     ): Boolean
 
+    /** Writes only the copied-image reference and accepts pending-removal rows while
+     * their undo window is still open. */
+    suspend fun attachLocalImagePath(
+        articleId: Int,
+        localImagePath: String,
+    ): Boolean
+
     /** Feed/detail toggle: immediate, full removal — no undo for this path. */
     suspend fun unsaveArticleImmediately(articleId: Int)
 
@@ -78,6 +85,9 @@ interface FeedLocalDataSource {
      * [nowEpochMillis], returning the removed articles so callers can delete their
      * locally-copied images. */
     suspend fun finalizeExpiredPendingUnsaves(nowEpochMillis: Long): List<CachedArticle>
+
+    /** Finalizes all pending removals for the app-restart sweep, regardless of deadline. */
+    suspend fun finalizeAllPendingUnsaves(): List<CachedArticle>
 
     suspend fun pruneUnsavedArticles(cutoffEpochMillis: Long): Int
 }
