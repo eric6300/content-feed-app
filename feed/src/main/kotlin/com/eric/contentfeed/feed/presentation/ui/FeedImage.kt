@@ -2,6 +2,7 @@
 
 package com.eric.contentfeed.feed.presentation.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -61,7 +62,7 @@ private fun ImagePlaceholder(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier,
+        modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
         Text(
