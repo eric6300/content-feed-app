@@ -3,6 +3,7 @@
 package com.eric.contentfeed.feed.presentation.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,10 +16,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
@@ -64,14 +65,23 @@ fun DetailRoute(
     ) {
         when (val content = state.content) {
             DetailContract.ContentState.Loading ->
-                CircularProgressIndicator(
-                    modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
-                )
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.padding(ContentFeedTheme.dimens.space4))
+                }
             DetailContract.ContentState.NotFound ->
                 EmptyPanel(
                     message = stringResource(R.string.detail_not_found),
                 )
             is DetailContract.ContentState.Ready -> {
+                if (state.isOffline) {
+                    StatusStrip(
+                        message = stringResource(R.string.detail_offline_saved),
+                        modifier = Modifier.padding(bottom = ContentFeedTheme.dimens.space4),
+                    )
+                }
                 DetailContent(
                     content = content.value,
                     imageLoader = imageLoader,
@@ -164,7 +174,7 @@ private fun DetailContent(
                             ),
                         onClick = onToggleSave,
                     )
-                    TextButton(enabled = !isOffline, onClick = onOpenExternal) {
+                    Button(enabled = !isOffline, onClick = onOpenExternal) {
                         Text(stringResource(R.string.detail_read_source))
                     }
                 }
@@ -200,12 +210,6 @@ private fun DetailContent(
                     Text(stringResource(R.string.service_view))
                 }
             }
-        }
-        if (isOffline) {
-            StatusStrip(
-                message = stringResource(R.string.detail_offline_saved),
-                modifier = Modifier.padding(top = dimens.space4),
-            )
         }
     }
 }

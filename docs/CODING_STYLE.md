@@ -10,6 +10,7 @@ What's decided so far: which tools/rules are enforced, and the naming/structure 
 - **Compose-specific lint** on top of ktlint (`compose-rules`), catching Compose pitfalls plain ktlint doesn't (unstable parameters, missing `remember`, modifier-ordering issues).
 - Both run in CI (`ktlintCheck`) on every push and pull request — not just a local pre-commit convenience.
 - Dependency versions are centralized in `gradle/libs.versions.toml`. “Latest” means the latest stable release that resolves, compiles, and passes lint on the committed AGP/Kotlin/Gradle/compileSdk baseline; compatibility pins are documented in `DECISIONS.md`.
+- Module direction is one-way: `:app` composes `:feed`, `:core`, and `:designsystem`; `:feed` consumes `:core` and `:designsystem`; `:designsystem` depends on no project module. `:core` owns framework-level Compose interaction primitives (e.g. `Modifier` extensions with no visual identity of their own); `:designsystem` owns visual tokens and themed components; product-specific screen composition stays in `:feed` or `:app`.
 - Android lint remains strict (`abortOnError` and `warningsAsErrors`). Only the update-detector checks for intentionally pinned `AndroidGradlePluginVersion`, `GradleDependency`, and `OldTargetApi` are disabled; source and resource correctness checks remain enabled.
 - Compose `Unit` functions use the Compose convention of an uppercase name. Files containing these composables may use a local `ktlint:standard:function-naming` suppression because that convention intentionally differs from the general Kotlin function rule.
 
@@ -43,13 +44,17 @@ A shared base ViewModel owns the plumbing (state holder, event dispatch, effect 
 
 ## Naming & package layout
 
-Room/DataStore are shared infrastructure and live in `:core`; feature code (domain models, data sources, repositories, MVI, UI) lives in `:feed`. Within `:feed`, group files by layer, not by mixing everything into one package:
+Room/DataStore are shared infrastructure and live in `:core`; feature code (domain models, data sources, repositories, MVI, UI) lives in `:feed`; shared visual tokens and generic Compose components live in `:designsystem`. Within `:feed`, group files by layer, not by mixing everything into one package:
 
 ```
 core/
   database/    ArticleEntity.kt, ArticleDao.kt, FeedPlacementEntity.kt, FeedPlacementDao.kt, ...
   freshness/   FreshnessGate.kt, DataStoreFreshnessGate.kt
   di/          CoreModule.kt
+
+designsystem/
+  theme/       SignalColors.kt, SignalTypography.kt, SignalShapes.kt, SignalDimens.kt, ...
+  component/   SourceMark.kt, StatusStrip.kt, ScopedErrorPanel.kt, ...
 
 feed/
   presentation/
@@ -116,6 +121,13 @@ val feedModule = module {
 - `feedModule` owns one shared Coil `ImageLoader`, configured with the `:core` `OkHttpClient`; Compose image components always receive that loader explicitly.
 - Every remote article image request sets an explicit `diskCacheKey` equal to the article image URL so saved-image lookup is deterministic.
 - All app-internal saved-image file I/O goes through `SavedImageStore`. Copies live at `filesDir/saved_images/<articleId>.img`, never in Coil's cache directory.
+
+### Compose UI
+
+- Feature UI consumes `MaterialTheme.colorScheme`, `MaterialTheme.typography`, `MaterialTheme.shapes`, and named `ContentFeedTheme.dimens`/`extendedColors`; raw hex colors and bare `.dp`/`.sp` literals are not allowed in screen code.
+- Use Material icons or named design-system icons with meaningful `contentDescription` values; preserve a minimum 48 dp interactive target.
+- User-visible copy and accessibility labels belong in the owning module's `res/values/strings.xml` and are read with `stringResource`. Domain and pure presentation formatters must receive localized fallback labels instead of owning UI copy.
+- Reusable design-system components expose copy as parameters and include a `@Preview`; preview-only sample text is also kept in the design-system resource file.
 
 ## Testing
 

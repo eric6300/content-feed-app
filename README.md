@@ -14,8 +14,8 @@ A small content-feed app — a scrollable feed the user can open, save for later
 - T1 (dependency, module, lint, and build bootstrap) is complete and merged into `develop`.
 - T2 (domain contracts and local persistence) is complete and merged into `develop`.
 - T3 (remote data sources and mapping) is complete and merged into `develop`.
-- T4 (repositories and feed use cases) is complete on `feature/t4-repositories-and-use-cases`, including fixes from a post-implementation code-review pass; not yet merged into `develop`.
-- The next implementation slice is T5: save, offline, and undo use cases.
+- T4 (repositories and feed use cases), T5 (save/offline/undo), and T6 (MVI contracts, ViewModels, and Navigation 3) are complete and merged into `develop`.
+- T7 (Compose UI and design tokens) is complete on `feature/t7-compose-ui`; T8 is the remaining hardening and release-documentation pass.
 - The current dependency pins and compatibility exceptions are recorded in [`gradle/libs.versions.toml`](gradle/libs.versions.toml), [`docs/SPEC.md`](docs/SPEC.md), and [`DECISIONS.md`](DECISIONS.md).
 
 ## Plan & Sequencing
@@ -36,13 +36,11 @@ The complete, executable task breakdown is in [`docs/IMPLEMENTATION_PLAN.md`](do
 
 4. **Code review**: a self-review plus an AI-assisted review pass before release, checking the implementation against `DECISIONS.md` and `USE_CASES.md` for drift (e.g. a scenario the code doesn't actually satisfy, or a decision the code silently diverged from).
 
-   The final pass also checks the design-token contract, Android Back/insets/font-scale behavior, offline and source-scoped states, clean-checkout build/lint/unit-test gates, and requirement traceability. Deliberately deferred work — UI tests, full dark-theme implementation, animations, search/filtering, and additional source types — is documented as a trade-off rather than allowed to displace must-have behavior.
+   The final pass also checks the design-token contract, Android Back/insets/font-scale behavior, offline and source-scoped states, clean-checkout build/lint/unit-test gates, and requirement traceability. Deliberately deferred work — UI tests, dark-role contrast audit, animations, search/filtering, and additional source types — is documented as a trade-off rather than allowed to displace must-have behavior.
 
 ## Known limitations / with more time
 
 - The Room DAO tests (`ArticleDaoTest`, `FeedPlacementDaoTest`, `WeatherDaoTest`) run as instrumented `androidTest`, not under `testDebugUnitTest`, so they don't run in CI's current `build`/`ktlintCheck`/`testDebugUnitTest` workflow — run them manually against an emulator or device with `./gradlew :core:connectedDebugAndroidTest`. Picking up Robolectric to fold these into the JVM unit-test suite (and CI) is deferred, not rejected.
-- Feature UI has not started; the next step is T5, save/offline/undo use cases, followed by MVI contracts, navigation, and Compose UI.
-- T4's repositories still only run against the two live network sources at the data-source unit-test level (mocked); the first real request happens once a ViewModel actually invokes these use cases and the app runs end-to-end.
-- Navigation 3 is not included in the current bootstrap because its stable Android artifacts require compileSdk 36 and AGP 8.9.1 or newer. The project deliberately retains AGP 8.7.3 and compileSdk 35; T6 must revisit this boundary before navigation implementation.
-- The Signal Desk visual direction and tokens are specified, but their Compose implementation and emulator verification are intentionally deferred to T7.
-- UI tests, full dark-theme implementation, animation, search/filtering, and additional source types remain lower priority after the must-have flow and unit-test gates.
+- Foreground refresh is coordinated through `ProcessLifecycleOwner`, so cold start and later process-level foreground returns share the same lifecycle boundary.
+- The dark `ColorScheme` is implemented, but light/dark semantic-role contrast has not yet been audited on device.
+- Compose UI tests, animation, search/filtering, and additional source types remain lower priority after the must-have flow and unit-test gates.

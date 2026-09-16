@@ -22,6 +22,7 @@ data class SignalDimens(
     val thumbnailArticle: DpSize = DpSize(96.dp, 72.dp),
     val thumbnailSaved: DpSize = DpSize(112.dp, 84.dp),
     val weatherForecastItemWidth: Dp = 112.dp,
+    val weatherExpandedBreakpoint: Dp = 600.dp,
     val detailImageHeight: Dp = 220.dp,
     val serviceImageHeight: Dp = 144.dp,
     val elevationNone: Dp = 0.dp,

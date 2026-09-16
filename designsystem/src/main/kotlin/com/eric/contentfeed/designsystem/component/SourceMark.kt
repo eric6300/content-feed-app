@@ -27,7 +27,7 @@ fun SourceMark(
     ) {
         Text(
             text = source,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall,
             modifier =
                 Modifier.padding(
                     horizontal = ContentFeedTheme.dimens.space2,

@@ -7,9 +7,9 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.eric.contentfeed.designsystem.R
@@ -29,7 +29,12 @@ fun KeepAction(
         Icon(
             imageVector = if (isKept) Icons.Rounded.Bookmark else Icons.Outlined.BookmarkBorder,
             contentDescription = contentDescription,
-            tint = if (isKept) ContentFeedTheme.extendedColors.success else Color.Unspecified,
+            tint =
+                if (isKept) {
+                    ContentFeedTheme.extendedColors.success
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
         )
     }
 }

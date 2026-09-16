@@ -2,10 +2,12 @@
 
 package com.eric.contentfeed.feed.presentation.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,10 +45,13 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.ImageLoader
 import com.eric.contentfeed.core.connectivity.ConnectivityStatus
+import com.eric.contentfeed.core.ui.click
 import com.eric.contentfeed.designsystem.component.ArticleRowSkeleton
 import com.eric.contentfeed.designsystem.component.EmptyPanel
 import com.eric.contentfeed.designsystem.component.KeepAction
@@ -245,17 +250,27 @@ private fun WeatherSection(
                         ),
                 shape = MaterialTheme.shapes.large,
                 colors =
-                    CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
                 elevation =
                     CardDefaults.cardElevation(
                         defaultElevation = ContentFeedTheme.dimens.elevationTonal1,
                     ),
             ) {
                 Column(modifier = Modifier.padding(ContentFeedTheme.dimens.space4)) {
-                    Text(
-                        stringResource(R.string.weather_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stringResource(R.string.weather_title),
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        SourceMark(source = stringResource(R.string.weather_source))
+                    }
                     Spacer(modifier = Modifier.height(ContentFeedTheme.dimens.space3))
                     WeatherContent(state.value)
                     state.error?.let { failure ->
@@ -282,63 +297,108 @@ private fun WeatherContent(weather: WeatherUiModel) {
         weather.temperatureCelsius?.let {
             stringResource(R.string.weather_temperature_celsius, it.toInt())
         } ?: unavailableValue
-    Column(verticalArrangement = Arrangement.spacedBy(dimens.space3)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(dimens.space3),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = temperatureLabel,
-                style = MaterialTheme.typography.displaySmall,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(conditionLabel)
-                Text(
-                    text = stringResource(R.string.weather_local_conditions),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    val feelsLike =
+        weather.apparentTemperatureCelsius?.let {
+            stringResource(R.string.weather_temperature_celsius, it.toInt())
+        } ?: unavailableValue
+    val wind =
+        weather.windSpeedKmh?.let {
+            stringResource(R.string.weather_wind_speed, it.toInt())
+        } ?: unavailableValue
+    BoxWithConstraints {
+        val isExpanded = maxWidth >= dimens.weatherExpandedBreakpoint
+        Column(verticalArrangement = Arrangement.spacedBy(dimens.space3)) {
+            if (isExpanded) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(dimens.space4),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    WeatherPrimaryContent(
+                        temperatureLabel = temperatureLabel,
+                        conditionLabel = conditionLabel,
+                        conditionIcon = conditionDisplay.icon.imageVector(),
+                        modifier = Modifier.weight(1.35f),
+                    )
+                    WeatherMeasures(feelsLike = feelsLike, wind = wind, weight = 0.6f)
+                }
+            } else {
+                WeatherPrimaryContent(
+                    temperatureLabel = temperatureLabel,
+                    conditionLabel = conditionLabel,
+                    conditionIcon = conditionDisplay.icon.imageVector(),
                 )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(dimens.space3),
+                ) {
+                    WeatherMeasures(feelsLike = feelsLike, wind = wind, weight = 1f)
+                }
             }
-            Icon(
-                imageVector = conditionDisplay.icon.imageVector(),
-                contentDescription = conditionLabel,
-                modifier = Modifier.size(dimens.iconStandard),
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(dimens.space3),
-        ) {
-            WeatherMeasure(
-                label = stringResource(R.string.weather_feels_like),
-                value =
-                    weather.apparentTemperatureCelsius?.let {
-                        stringResource(R.string.weather_temperature_celsius, it.toInt())
-                    } ?: unavailableValue,
-                modifier = Modifier.weight(1f),
-            )
-            WeatherMeasure(
-                label = stringResource(R.string.weather_wind),
-                value =
-                    weather.windSpeedKmh?.let {
-                        stringResource(R.string.weather_wind_speed, it.toInt())
-                    } ?: unavailableValue,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        if (weather.forecast.isNotEmpty()) {
-            Text(
-                stringResource(R.string.weather_forecast),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(dimens.space2)) {
-                items(weather.forecast) { forecast ->
-                    ForecastItem(forecast)
+            if (weather.forecast.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.weather_forecast),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(dimens.space2)) {
+                    items(weather.forecast) { forecast ->
+                        ForecastItem(forecast)
+                    }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun WeatherPrimaryContent(
+    temperatureLabel: String,
+    conditionLabel: String,
+    conditionIcon: ImageVector,
+    modifier: Modifier = Modifier,
+) {
+    val dimens = ContentFeedTheme.dimens
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(dimens.space3),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = temperatureLabel,
+            style = MaterialTheme.typography.displaySmall,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(conditionLabel)
+            Text(
+                text = stringResource(R.string.weather_local_conditions),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+        Icon(
+            imageVector = conditionIcon,
+            contentDescription = conditionLabel,
+            modifier = Modifier.size(dimens.iconStandard),
+        )
+    }
+}
+
+@Composable
+private fun RowScope.WeatherMeasures(
+    feelsLike: String,
+    wind: String,
+    weight: Float,
+) {
+    WeatherMeasure(
+        label = stringResource(R.string.weather_feels_like),
+        value = feelsLike,
+        modifier = Modifier.weight(weight),
+    )
+    WeatherMeasure(
+        label = stringResource(R.string.weather_wind),
+        value = wind,
+        modifier = Modifier.weight(weight),
+    )
 }
 
 @Composable
@@ -351,7 +411,7 @@ private fun WeatherMeasure(
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
         Text(text = value, style = MaterialTheme.typography.labelLarge)
     }
@@ -413,7 +473,10 @@ private fun FeedItemRow(
     when (item) {
         is FeedItemUiModel.Article ->
             ListItem(
-                modifier = Modifier.clickable { onOpenArticle(item.value.id) },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .click { onOpenArticle(item.value.id) },
                 overlineContent = {
                     SourceMark(source = item.value.source)
                 },
@@ -427,7 +490,12 @@ private fun FeedItemRow(
                     )
                 },
                 headlineContent = {
-                    Text(item.value.title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = item.value.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 },
                 supportingContent = {
                     Column(verticalArrangement = Arrangement.spacedBy(dimens.space1)) {
@@ -436,6 +504,8 @@ private fun FeedItemRow(
                                 item.value.summary
                                     ?: stringResource(R.string.article_summary_unavailable),
                             style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text =
@@ -468,9 +538,7 @@ private fun FeedItemRow(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            onOpenServiceCard(item.value.poolIndex, item.value.assignmentSequence)
-                        }.padding(
+                        .padding(
                             horizontal = dimens.space4,
                             vertical = dimens.space3,
                         ),
@@ -481,34 +549,52 @@ private fun FeedItemRow(
                     shape = MaterialTheme.shapes.large,
                     tonalElevation = dimens.elevationTonal1,
                 ) {
-                    Column(modifier = Modifier.padding(dimens.space4)) {
-                        FeedImage(
-                            model = item.value.imageAssetPath.toAssetUri(),
-                            imageLoader = imageLoader,
-                            contentDescription = item.value.title,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .height(dimens.serviceImageHeight)
-                                    .clip(MaterialTheme.shapes.medium),
-                        )
-                        Spacer(modifier = Modifier.height(dimens.space3))
-                        Text(item.value.title, style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(dimens.space1))
-                        Text(item.value.blurb, style = MaterialTheme.typography.bodyLarge)
-                        item.value.price?.let { price ->
-                            Spacer(modifier = Modifier.height(dimens.space2))
-                            Text(
-                                text =
-                                    stringResource(
-                                        R.string.service_price,
-                                        formatPrice(price),
-                                    ),
-                                style = MaterialTheme.typography.labelLarge,
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .click {
+                                    onOpenServiceCard(
+                                        item.value.poolIndex,
+                                        item.value.assignmentSequence,
+                                    )
+                                },
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(dimens.space4),
+                        ) {
+                            FeedImage(
+                                model = item.value.imageAssetPath.toAssetUri(),
+                                imageLoader = imageLoader,
+                                contentDescription = item.value.title,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(dimens.serviceImageHeight)
+                                        .clip(MaterialTheme.shapes.medium),
                             )
+                            Spacer(modifier = Modifier.height(dimens.space3))
+                            Text(item.value.title, style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.height(dimens.space1))
+                            Text(item.value.blurb, style = MaterialTheme.typography.bodyLarge)
+                            item.value.price?.let { price ->
+                                Spacer(modifier = Modifier.height(dimens.space2))
+                                Text(
+                                    text =
+                                        stringResource(
+                                            R.string.service_price,
+                                            formatPrice(price),
+                                        ),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.height(dimens.space3))
                         Button(
+                            modifier =
+                                Modifier.padding(
+                                    start = dimens.space4,
+                                    bottom = dimens.space4,
+                                ),
                             enabled = canOpenExternalLinks,
                             onClick = { onOpenExternalLink(item.value.targetUrl) },
                         ) { Text(stringResource(R.string.service_view)) }
@@ -526,12 +612,12 @@ private fun PaginationFooter(
     when (state) {
         FeedContract.PaginationState.Idle -> Unit
         FeedContract.PaginationState.Loading ->
-            CircularProgressIndicator(
-                modifier =
-                    Modifier.padding(ContentFeedTheme.dimens.space4).size(
-                        ContentFeedTheme.dimens.iconStandard,
-                    ),
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(ContentFeedTheme.dimens.space4),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(ContentFeedTheme.dimens.iconStandard))
+            }
         is FeedContract.PaginationState.RetryableError ->
             ScopedErrorPanel(
                 message = errorMessage(state.cause),
@@ -540,11 +626,16 @@ private fun PaginationFooter(
                 modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
             )
         FeedContract.PaginationState.End ->
-            Text(
-                text = stringResource(R.string.pagination_caught_up),
-                modifier = Modifier.padding(ContentFeedTheme.dimens.space4),
-                style = MaterialTheme.typography.labelMedium,
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(ContentFeedTheme.dimens.space4),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = stringResource(R.string.pagination_caught_up),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
     }
 }
 

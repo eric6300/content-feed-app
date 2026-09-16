@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.ktlint)
 }
@@ -25,6 +26,7 @@ android {
 
     buildFeatures {
         buildConfig = true
+        compose = true
     }
 
     lint {
@@ -38,6 +40,10 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.datastore.preferences)
+
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.foundation)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
