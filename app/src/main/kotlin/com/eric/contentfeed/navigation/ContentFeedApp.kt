@@ -27,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -56,11 +57,13 @@ import com.eric.contentfeed.designsystem.theme.ContentFeedTheme
 import com.eric.contentfeed.feed.presentation.contract.ConnectivityContract
 import com.eric.contentfeed.feed.presentation.contract.DetailContract
 import com.eric.contentfeed.feed.presentation.contract.FeedContract
+import com.eric.contentfeed.feed.presentation.contract.SavedContract
 import com.eric.contentfeed.feed.presentation.model.DetailTarget
 import com.eric.contentfeed.feed.presentation.ui.DetailRoute
 import com.eric.contentfeed.feed.presentation.ui.FeedRoute
 import com.eric.contentfeed.feed.presentation.ui.SavedRoute
 import com.eric.contentfeed.feed.presentation.viewmodel.ConnectivityViewModel
+import com.eric.contentfeed.feed.presentation.viewmodel.SavedViewModel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -89,6 +92,7 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
     val connectivityViewModel: ConnectivityViewModel = koinViewModel()
     val connectivityState by connectivityViewModel.state.collectAsStateWithLifecycle()
     val foregroundCoordinator: ForegroundCoordinator = koinInject()
+    val savedViewModel: SavedViewModel = koinViewModel()
 
     LaunchedEffect(connectivityViewModel) {
         connectivityViewModel.effects.collectLatest { effect ->
@@ -102,6 +106,37 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
     LaunchedEffect(foregroundCoordinator) {
         foregroundCoordinator.effects.collect { effect ->
             snackbarHostState.showSnackbar(effect.message())
+        }
+    }
+
+    LaunchedEffect(savedViewModel) {
+        savedViewModel.effects.collect { effect ->
+            when (effect) {
+                is SavedContract.Effect.NavigateToArticle ->
+                    savedBackStack.add(ContentFeedNavKey.ArticleDetail(effect.articleId))
+                is SavedContract.Effect.ShowUndo -> {
+                    val result =
+                        snackbarHostState.showSnackbar(
+                            message = "Removed from Saved",
+                            actionLabel = "Undo",
+                        )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        savedViewModel.onEvent(
+                            SavedContract.Event.UndoRemoval(
+                                effect.articleId,
+                            ),
+                        )
+                    } else {
+                        savedViewModel.onEvent(
+                            SavedContract.Event.UndoWindowElapsed(
+                                effect.articleId,
+                            ),
+                        )
+                    }
+                }
+                SavedContract.Effect.UndoUnavailable ->
+                    snackbarHostState.showSnackbar("That article was already removed.")
+            }
         }
     }
 
@@ -136,12 +171,7 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                 )
             }
             entry<ContentFeedNavKey.Saved> {
-                SavedRoute(
-                    onNavigateToArticle = { articleId ->
-                        savedBackStack.add(ContentFeedNavKey.ArticleDetail(articleId))
-                    },
-                    snackbarHostState = snackbarHostState,
-                )
+                SavedRoute(viewModel = savedViewModel)
             }
             entry<ContentFeedNavKey.ArticleDetail> { key ->
                 DetailRoute(
