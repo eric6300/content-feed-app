@@ -4,7 +4,7 @@ Back to [README](../README.md) · [Spec](SPEC.md) · [Use Cases](USE_CASES.md) �
 
 ## Current state
 
-T0 is complete as documentation, and T1–T4 are complete and merged into `develop`. The repository now has the `:app`, `:core`, and `:feed` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool), remote data sources for articles and weather, repository orchestration, and feed use cases. T5 adds local saved-article commands, offline image copies, and undo finalization; feature UI remains for T6/T7.
+T0 is complete as documentation, and T1–T6 are complete and merged into `develop`. The repository now has the `:app`, `:core`, `:feed`, and `:designsystem` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool), remote data sources for articles and weather, repository orchestration, feed use cases, MVI presentation contracts/ViewModels, Navigation 3, and offline save behavior. T7 is implemented on `feature/t7-compose-ui`; T8 remains the hardening and release-documentation pass.
 
 The T1 baseline was verified with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The exact compatibility decisions are recorded in [`DECISIONS.md`](../DECISIONS.md).
 
@@ -41,11 +41,11 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 - Add `:core` and `:feed` modules and wire their source-set dependencies.
 - Add the compatible bootstrap stack: KSP, Room, DataStore Preferences, Retrofit, OkHttp, Moshi, sandwich, Koin, Coil, Custom Tabs, ktlint, Compose rules, MockK, Turbine, and coroutine test support.
-- Keep Navigation 3 as a planned dependency, but defer it because the stable Android artifacts currently require compileSdk 36 and AGP 8.9.1 or newer. T6 must either upgrade the build baseline or record a revised navigation decision before adding the graph.
+- Keep the composition root ready for Navigation 3; T6 resolved the compatibility boundary by upgrading the build baseline to AGP 8.9.1, Kotlin 2.2.10, and compileSdk 36.
 - Configure code generation, Android test dependencies, strict lint checks, and the GitHub Actions build/test workflow.
 - Add only the minimum module/application scaffolding needed to prove dependency resolution; do not begin feature code.
 
-**Compatibility baseline:** AGP `8.7.3`, Kotlin `2.0.21`, KSP `2.0.21-1.0.28`, Gradle `8.13`, compileSdk/targetSdk `35`, minSdk `24`, Java/Kotlin target `11`, Compose BOM `2025.03.00`, Lifecycle `2.8.7`, Browser `1.8.0`, Room `2.7.2`, and the remaining pins in `gradle/libs.versions.toml`. These are latest-compatible pins for the retained baseline, not latest-overall releases.
+**Compatibility baseline:** AGP `8.9.1`, Kotlin `2.2.10`, Gradle `8.13`, compileSdk/targetSdk `36`, minSdk `24`, Java/Kotlin target `11`, Compose BOM `2025.03.00`, Lifecycle `2.8.7`, Browser `1.8.0`, Room `2.7.2`, and the remaining pins in `gradle/libs.versions.toml`. These are compatibility pins for the committed baseline, not latest-overall releases.
 
 **Test/build gate:** passed with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The version choices resolve together on the committed AGP/Kotlin/Gradle baseline.
 
@@ -133,9 +133,9 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 **Mandatory unit tests:** save from each entry point; offline save with/without cached image; cross-screen saved-state consistency; immediate feed/detail unsave with no undo; Saved-list undo restore; timeout finalization; restart finalization regardless of remaining deadline; independent concurrent undos; Saved list empty/populated/offline reads/most-recently-saved ordering.
 
-**Verification:** `:core`/`:feed` ktlint and JVM unit tests are green; the Room DAO additions are covered by the existing emulator-only `:core` instrumented suite; full `./gradlew build` is the required Android Lint gate for Coil and file I/O. The known limitation is that T5 has no main-source-set writer to Coil's disk cache, so real-app image copies miss until T7 renders remote images with an explicit `diskCacheKey`.
+**Verification:** `:core`/`:feed` ktlint and JVM unit tests are green; the Room DAO additions are covered by the existing emulator-only `:core` instrumented suite; full `./gradlew build` is the required Android Lint gate for Coil and file I/O. T7 closes T5's image-cache limitation by rendering remote images with an explicit `diskCacheKey` and copying saved images through the app-internal image store.
 
-**T6 obligation:** call `FinalizePendingUnsavesUseCase(AppStart)` from the composition root on foreground and `UndoWindowElapsed(articleId)` when each undo Snackbar is dismissed. Dismissal explicitly finalizes only that pending article; the persisted 1-second grace remains the deadline guard for late undo and the restart/fallback sweep. Because `lifecycle-process` is not currently pinned, T6 must either add it for real foreground transitions or accept `MainActivity.onStart` and its configuration-change trade-off.
+**T6 obligation:** call `FinalizePendingUnsavesUseCase(AppStart)` from the composition root on foreground and `UndoWindowElapsed(articleId)` when each undo Snackbar is dismissed. Dismissal explicitly finalizes only that pending article; the persisted 1-second grace remains the deadline guard for late undo and the restart/fallback sweep. The shipped implementation uses `ProcessLifecycleOwner` so cold start and process-level foreground returns share one lifecycle boundary.
 
 **T7 obligation:** every remote image request must set `diskCacheKey(article.imageUrl)`; `localImagePath != null` renders from `File(path)`, while null renders a placeholder.
 
@@ -149,7 +149,7 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 - Add Feed, Article Detail, and Saved contracts/ViewModels.
 - Represent source-scoped loading/empty/error states, pagination retry, connectivity banner, save/undo, and external-link effects explicitly.
-- Wire the navigation graph and preserve feed scroll position when returning from detail. Before implementation, resolve the Navigation 3 compatibility boundary recorded in T1; do not add an incompatible stable artifact or silently switch navigation libraries.
+- Wire the Navigation 3 graph and preserve feed scroll position when returning from detail; the compatibility boundary recorded in T1 is resolved by the current compileSdk 36 / AGP 8.9.1 baseline.
 - Add app-wide connectivity observation at the composition root without duplicating banner logic per screen.
 - Map the raw WMO `weatherCode: Int?` carried through by T3 onto a `WeatherCondition` view-state enum, with an explicit neutral fallback for any code this app's table does not recognize (`USE_CASES.md` → Per-source data handling → Weather). The enum-to-icon/label binding is T7's; the code-to-enum decision is unit-tested here.
 
@@ -159,6 +159,8 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 ### T7 — Compose UI and token implementation
 
+**Status:** implementation complete on `feature/t7-compose-ui`; final emulator/manual verification remains part of the T7 gate.
+
 **Style contract:** implement only the tokens and component contracts in `DESIGN.md` and `docs/DESIGN_TOKENS.md`; use Material 3 components and semantic theme roles; no raw colors, arbitrary dimensions, emoji icons, or external-reference imitation; preserve Android Back/insets and 48 dp targets.
 
 **Work:**
@@ -167,11 +169,13 @@ Every task below follows the same loop. A task is not ready to implement until i
 - Build Feed, article/detail, and Saved screens using the source-mark/dispatch-ledger grammar.
 - Implement skeleton, empty, scoped error, offline/back-online, pagination retry, save, and undo states.
 - Use Coil loading/error placeholders for remote article images and bundled assets for service cards.
+- Add the independent `:designsystem` module with explicit Signal Desk light/dark roles, typography, shapes, dimensions, reusable state components, and previews; disable dynamic color so semantic roles remain stable across devices.
+- Render expanded-width `NavigationRail`, extract app/feed/design-system UI copy into string resources, and host Saved undo feedback in the app scaffold.
 - Keep UI tests optional until all required unit tests and build/lint checks are green; add focused Compose tests only for high-value semantics/navigation if time remains.
 
-**Verification gate:** unit tests remain mandatory; perform emulator/manual checks for system Back, insets, font scale, light token mapping, offline banner, saved article offline detail, and compact/expanded navigation. Confirm that the reserved dark-token names remain implementable, but keep full dark-theme implementation deferred and outside this gate. Capture evidence only after the flow works.
+**Verification gate:** unit tests remain mandatory; perform emulator/manual checks for system Back, insets, font scale, light token mapping, offline banner, saved article offline detail, and compact/expanded navigation. The dark `ColorScheme` is implemented, but dark-role contrast is explicitly not verified in this slice. Capture evidence only after the flow works.
 
-**Commit:** `feat: build feed screens`.
+**Commits:** focused C1–C12 Conventional Commits covering the design-system module/tokens/components, app shell, weather/feed/detail/Saved rendering, Saved Snackbar hoisting, expanded navigation, and string resources.
 
 ### T8 — Hardening, review, and release documentation
 
@@ -189,4 +193,4 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 ## Priority and cut line
 
-T1–T6 and the core portion of T7 are the delivery line: paginated heterogeneous feed, detail, article save/unsave, offline saved access, freshness policy, explicit states, and unit tests. T7 UI polish, full dark-theme implementation, UI tests, animations, search/filter, and additional source types are cut or deferred if the delivery window tightens. Never cut the unit-test coverage for a completed data/presentation task to make room for optional UI polish.
+T1–T7 and the core portion of the hardening pass are the delivery line: paginated heterogeneous feed, detail, article save/unsave, offline saved access, freshness policy, explicit states, tokenized UI, and unit tests. Dark-role contrast audit, UI tests, animations, search/filter, and additional source types are cut or deferred if the delivery window tightens. Never cut the unit-test coverage for a completed data/presentation task to make room for optional UI polish.

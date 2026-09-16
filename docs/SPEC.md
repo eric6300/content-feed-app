@@ -19,14 +19,14 @@ A small content-feed app: a scrollable, heterogeneous feed (articles, weather, s
 **Out of scope** (not attempted, or deferred — see `README.md` for the up-to-date list once implementation starts):
 - Search / filtering
 - Animations / transitions beyond what a standard Compose scaffold provides for free
-- Full dark-theme implementation (semantic dark roles remain reserved in the token contract and are deferred until after the core release)
+- Dark-role contrast audit (the semantic dark `ColorScheme` is implemented; contrast verification is deferred)
 
 ## Architecture
 
-- **Modules**: `:app` (composition root — Koin wiring, `MainActivity`, and the future navigation graph), `:core` (network, Room, DataStore, and shared Koin modules), `:feed` (repositories/data sources, MVI state/view models, and the feed/detail/saved Compose screens).
-- **Stack**: Kotlin + Jetpack Compose, MVI; Koin for DI; OkHttp + Moshi (KSP codegen) + Retrofit, wrapped in sandwich for API responses; Room + DataStore Preferences for persistence and freshness timestamps; Coil for images; Custom Tabs for external links. Navigation 3 remains the planned navigation library, but is deferred until the build baseline can support its stable Android artifacts.
+- **Modules**: `:app` (composition root — Koin wiring, `MainActivity`, and the Navigation 3 shell), `:core` (network, Room, DataStore, and shared Koin modules), `:feed` (repositories/data sources, MVI state/view models, and feed/detail/saved Compose screens), and `:designsystem` (tokenized Material 3 theme and generic UI components).
+- **Stack**: Kotlin + Jetpack Compose, MVI, and Navigation 3; Koin for DI; OkHttp + Moshi (KSP codegen) + Retrofit, wrapped in sandwich for API responses; Room + DataStore Preferences for persistence and freshness timestamps; Coil for images; Custom Tabs for external links.
 - **CI**: GitHub Actions runs `build`, `ktlintCheck`, and `testDebugUnitTest` on push to any branch and on pull requests.
-- **Bootstrap status**: T1 is complete. The committed baseline keeps AGP `8.7.3`, Kotlin `2.0.21`, Gradle `8.13`, compileSdk/targetSdk `35`, and minSdk `24`; all external versions are centralized in `gradle/libs.versions.toml` and selected as latest-compatible versions that pass this baseline's resolution, compilation, and lint checks.
+- **Bootstrap status**: T1 is complete and T6 upgraded the baseline for Navigation 3. The project uses AGP `8.9.1`, Kotlin `2.2.10`, Gradle `8.13`, compileSdk/targetSdk `36`, and minSdk `24`; all external versions are centralized in `gradle/libs.versions.toml` and selected as compatible with the committed build.
 - Naming/structure conventions and lint rules are in [Coding Style](CODING_STYLE.md); rationale for each architectural choice is recorded in `DECISIONS.md` as it's decided.
 - The original visual direction and token contract are in [Design Direction](../DESIGN.md) and [Design Tokens](DESIGN_TOKENS.md); the task/test/commit sequence is in [Implementation Plan](IMPLEMENTATION_PLAN.md).
 

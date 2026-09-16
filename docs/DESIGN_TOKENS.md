@@ -2,7 +2,7 @@
 
 Back to [Spec](SPEC.md) · [Visual direction](../DESIGN.md).
 
-This is the visual contract to implement later in Compose. It is an original system for this product, not a transcription of external reference screens. Those references establish only that the product needs a weather section, a heterogeneous feed, saved articles, and offline states.
+This is the visual contract implemented in Compose by the `:designsystem` module. It is an original system for this product, not a transcription of external reference screens. Those references establish only that the product needs a weather section, a heterogeneous feed, saved articles, and offline states.
 
 ## Principles
 
@@ -10,7 +10,7 @@ This is the visual contract to implement later in Compose. It is an original sys
 - Use the dispatch vocabulary consistently: source, signal, archive, freshness, offline, error, and kept.
 - Prefer tonal elevation and spacing over decorative borders or shadows.
 - Preserve legibility at Android system font scales and keep every interactive target at least 48 dp.
-- Keep light and dark role names aligned even if dark-mode implementation is deferred behind the project's core feature work.
+- Keep light and dark role names aligned; the semantic dark scheme is implemented, while its contrast audit remains a release follow-up.
 
 ## Color roles
 
@@ -59,7 +59,7 @@ The same semantic names map to a dark scheme rather than being inverted at runti
 | Tertiary / on-tertiary | `#FFB59E` / `#5B1D0E` |
 | Error / error-container | `#FFB4AB` / `#93000A` |
 
-Dark mode remains a post-must-have implementation slice, but no future screen may introduce a light-only raw color that makes this mapping impossible.
+Dark mode is implemented through the shared theme, but dark-role contrast has not been verified on device. No screen may introduce a light-only raw color that makes this mapping impossible.
 
 ## Typography
 
@@ -140,5 +140,5 @@ Base unit: 4 dp. Use these named steps rather than one-off numbers.
 
 - `ContentFeedTheme` exposes the semantic `ColorScheme`, `Typography`, shapes, and dimensions; feature code consumes tokens through the theme or named design-system components.
 - Raw hex colors, arbitrary `sp`/`dp`, emoji icons, and per-screen Material overrides are not accepted without a documented exception.
-- Verify light-role contrast, system font scale, 48 dp targets, edge-to-edge insets, screen-reader labels, and compact/expanded navigation before calling the UI slice complete. When dark theme is implemented, verify the dark-role contrast before treating that work as complete.
+- Verify light-role contrast, system font scale, 48 dp targets, edge-to-edge insets, screen-reader labels, and compact/expanded navigation before calling the UI slice complete. Verify dark-role contrast before treating the dark theme as fully audited.
 - UI tests are useful but secondary for this project; the semantic token and state contracts must first be covered by unit tests in the corresponding data/presentation slices.
