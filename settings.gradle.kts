@@ -16,4 +16,5 @@ dependencyResolutionManagement {
 rootProject.name = "Content Feed"
 include(":app")
 include(":core")
+include(":designsystem")
 include(":feed")
