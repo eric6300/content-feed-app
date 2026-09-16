@@ -91,6 +91,15 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
     val readingLabel = stringResource(R.string.nav_reading)
     val savedLabel = stringResource(R.string.nav_saved)
     val backOnlineMessage = stringResource(R.string.snackbar_back_online)
+    val removedFromSavedMessage = stringResource(R.string.snackbar_removed_from_saved)
+    val undoLabel = stringResource(R.string.action_undo)
+    val alreadyRemovedMessage = stringResource(R.string.snackbar_already_removed)
+    val externalLinkRequiresConnectionMessage =
+        stringResource(R.string.snackbar_external_link_requires_connection)
+    val noBrowserAvailableMessage = stringResource(R.string.snackbar_no_browser_available)
+    val articlesRefreshFailedMessage =
+        stringResource(R.string.snackbar_articles_refresh_failed)
+    val weatherRefreshFailedMessage = stringResource(R.string.snackbar_weather_refresh_failed)
     val isExpandedWidth =
         (context as? Activity)?.let { activity ->
             calculateWindowSizeClass(activity).widthSizeClass == WindowWidthSizeClass.Expanded
@@ -121,7 +130,12 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
 
     LaunchedEffect(foregroundCoordinator) {
         foregroundCoordinator.effects.collect { effect ->
-            snackbarHostState.showSnackbar(effect.message(context))
+            snackbarHostState.showSnackbar(
+                effect.message(
+                    articlesMessage = articlesRefreshFailedMessage,
+                    weatherMessage = weatherRefreshFailedMessage,
+                ),
+            )
         }
     }
 
@@ -133,8 +147,8 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                 is SavedContract.Effect.ShowUndo -> {
                     val result =
                         snackbarHostState.showSnackbar(
-                            message = context.getString(R.string.snackbar_removed_from_saved),
-                            actionLabel = context.getString(R.string.action_undo),
+                            message = removedFromSavedMessage,
+                            actionLabel = undoLabel,
                         )
                     if (result == SnackbarResult.ActionPerformed) {
                         savedViewModel.onEvent(
@@ -151,9 +165,7 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                     }
                 }
                 SavedContract.Effect.UndoUnavailable ->
-                    snackbarHostState.showSnackbar(
-                        context.getString(R.string.snackbar_already_removed),
-                    )
+                    snackbarHostState.showSnackbar(alreadyRemovedMessage)
             }
         }
     }
@@ -176,16 +188,12 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                                     ),
                                 )
                             is FeedContract.Effect.OpenExternalUrl ->
-                                context.openExternalUrl(effect.url) { message ->
+                                context.openExternalUrl(effect.url, noBrowserAvailableMessage) { message ->
                                     scope.launch { snackbarHostState.showSnackbar(message) }
                                 }
                             FeedContract.Effect.ExternalLinkUnavailable ->
                                 scope.launch {
-                                    snackbarHostState.showSnackbar(
-                                        context.getString(
-                                            R.string.snackbar_external_link_requires_connection,
-                                        ),
-                                    )
+                                    snackbarHostState.showSnackbar(externalLinkRequiresConnectionMessage)
                                 }
                             is FeedContract.Effect.SourceRefreshFailed -> Unit
                         }
@@ -199,7 +207,12 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                 DetailRoute(
                     target = DetailTarget.Article(key.articleId),
                     onEffect = { effect ->
-                        handleDetailEffect(effect, context) { message ->
+                        handleDetailEffect(
+                            effect = effect,
+                            context = context,
+                            externalLinkMessage = externalLinkRequiresConnectionMessage,
+                            noBrowserMessage = noBrowserAvailableMessage,
+                        ) { message ->
                             scope.launch { snackbarHostState.showSnackbar(message) }
                         }
                     },
@@ -213,7 +226,12 @@ fun ContentFeedApp(modifier: Modifier = Modifier) {
                             assignmentSequence = key.assignmentSequence,
                         ),
                     onEffect = { effect ->
-                        handleDetailEffect(effect, context) { message ->
+                        handleDetailEffect(
+                            effect = effect,
+                            context = context,
+                            externalLinkMessage = externalLinkRequiresConnectionMessage,
+                            noBrowserMessage = noBrowserAvailableMessage,
+                        ) { message ->
                             scope.launch { snackbarHostState.showSnackbar(message) }
                         }
                     },
@@ -474,36 +492,41 @@ private fun List<NavKey>.detailTitleRes(): Int =
         else -> R.string.app_name
     }
 
-private fun ForegroundEffect.message(context: Context): String =
+private fun ForegroundEffect.message(
+    articlesMessage: String,
+    weatherMessage: String,
+): String =
     when (this) {
         is ForegroundEffect.SourceRefreshFailed ->
-            context.getString(
-                when (source) {
-                    ForegroundEffect.Source.Articles -> R.string.snackbar_articles_refresh_failed
-                    ForegroundEffect.Source.Weather -> R.string.snackbar_weather_refresh_failed
-                },
-            )
+            when (source) {
+                ForegroundEffect.Source.Articles -> articlesMessage
+                ForegroundEffect.Source.Weather -> weatherMessage
+            }
     }
 
 private fun handleDetailEffect(
     effect: DetailContract.Effect,
     context: Context,
+    externalLinkMessage: String,
+    noBrowserMessage: String,
     onMessage: (String) -> Unit,
 ) {
     when (effect) {
-        is DetailContract.Effect.OpenExternalUrl -> context.openExternalUrl(effect.url, onMessage)
+        is DetailContract.Effect.OpenExternalUrl ->
+            context.openExternalUrl(effect.url, noBrowserMessage, onMessage)
         DetailContract.Effect.ExternalLinkUnavailable ->
-            onMessage(context.getString(R.string.snackbar_external_link_requires_connection))
+            onMessage(externalLinkMessage)
     }
 }
 
 private fun Context.openExternalUrl(
     url: String,
+    noBrowserMessage: String,
     onUnavailable: (String) -> Unit,
 ) {
     try {
         CustomTabsIntent.Builder().build().launchUrl(this, url.toUri())
     } catch (_: ActivityNotFoundException) {
-        onUnavailable(getString(R.string.snackbar_no_browser_available))
+        onUnavailable(noBrowserMessage)
     }
 }
