@@ -106,9 +106,6 @@ fun FeedRoute(
             state = listState,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            item(key = "feed-header") {
-                FeedHeader()
-            }
             item(key = "weather") {
                 WeatherSection(
                     state = state.weather,
@@ -209,25 +206,6 @@ private fun FeedContract.State.isRefreshing(): Boolean =
             is FeedContract.ArticleStreamState.Error,
             -> false
         }
-
-@Composable
-private fun FeedHeader() {
-    val dimens = ContentFeedTheme.dimens
-    Row(
-        modifier =
-            Modifier.fillMaxWidth().padding(
-                horizontal = dimens.space4,
-                vertical = dimens.space3,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = stringResource(R.string.feed_title_reading),
-            style = MaterialTheme.typography.headlineSmall,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
 
 @Composable
 private fun WeatherSection(

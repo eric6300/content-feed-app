@@ -11,13 +11,14 @@ internal fun formatPublishedDate(
     epochMillis: Long?,
     unknownLabel: String,
     locale: Locale = Locale.getDefault(),
+    timeZone: ZoneId = ZoneId.systemDefault(),
 ): String {
     if (epochMillis == null) return unknownLabel
     return runCatching {
         DateTimeFormatter
             .ofLocalizedDate(FormatStyle.MEDIUM)
             .withLocale(locale)
-            .withZone(ZoneId.systemDefault())
+            .withZone(timeZone)
             .format(Instant.ofEpochMilli(epochMillis))
     }.getOrDefault(unknownLabel)
 }
