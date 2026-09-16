@@ -244,6 +244,12 @@ Scenario: Undoing an unsave restores the article
   Then the article is restored to the Saved list
   And its previously-copied local image is restored without being re-downloaded
 
+Scenario: Dismissing undo finalizes that removal
+  Given the user removed an article from the Saved list
+  When the user dismisses the undo option without tapping undo
+  Then only that article's saved state and locally-copied image are deleted
+  And its cached text remains as ordinary cached content subject to the 7-day retention rule
+
 Scenario: Unsave is finalized once the undo window passes
   Given the user removed an article from the Saved list and did not tap undo
   When the undo window expires

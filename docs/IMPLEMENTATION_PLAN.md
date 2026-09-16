@@ -135,7 +135,7 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 **Verification:** `:core`/`:feed` ktlint and JVM unit tests are green; the Room DAO additions are covered by the existing emulator-only `:core` instrumented suite; full `./gradlew build` is the required Android Lint gate for Coil and file I/O. The known limitation is that T5 has no main-source-set writer to Coil's disk cache, so real-app image copies miss until T7 renders remote images with an explicit `diskCacheKey`.
 
-**T6 obligation:** call `FinalizePendingUnsavesUseCase(AppStart)` from the composition root on foreground and `UndoWindowElapsed` when the undo Snackbar is dismissed. Because `lifecycle-process` is not currently pinned, T6 must either add it for real foreground transitions or accept `MainActivity.onStart` and its configuration-change trade-off.
+**T6 obligation:** call `FinalizePendingUnsavesUseCase(AppStart)` from the composition root on foreground and `UndoWindowElapsed(articleId)` when each undo Snackbar is dismissed. Dismissal explicitly finalizes only that pending article; the persisted 1-second grace remains the deadline guard for late undo and the restart/fallback sweep. Because `lifecycle-process` is not currently pinned, T6 must either add it for real foreground transitions or accept `MainActivity.onStart` and its configuration-change trade-off.
 
 **T7 obligation:** every remote image request must set `diskCacheKey(article.imageUrl)`; `localImagePath != null` renders from `File(path)`, while null renders a placeholder.
 
