@@ -84,7 +84,7 @@ class DefaultSavedArticleRepositoryTest {
         }
 
     @Test
-    fun aCopyThatLandsAfterImmediateUnsaveIsDiscardedAndDeleted() =
+    fun immediateUnsaveWaitsForSaveBeforeDeletingItsImage() =
         runTest {
             val copyStarted = CompletableDeferred<Unit>()
             val releaseCopy = CompletableDeferred<Unit>()
@@ -110,7 +110,7 @@ class DefaultSavedArticleRepositoryTest {
         }
 
     @Test
-    fun aCopyLandingDuringPendingRemovalAttachesSoUndoCanRestoreIt() =
+    fun savedListRemovalWaitsForSaveBeforeMarkingPending() =
         runTest {
             val copyStarted = CompletableDeferred<Unit>()
             val releaseCopy = CompletableDeferred<Unit>()
@@ -131,13 +131,18 @@ class DefaultSavedArticleRepositoryTest {
 
             val saveJob = launch { repository.saveArticle(1) }
             copyStarted.await()
-            val removeJob = launch { repository.removeFromSavedList(1) }
+            val removalResult = CompletableDeferred<Boolean>()
+            val removeJob =
+                launch {
+                    removalResult.complete(repository.removeFromSavedList(1))
+                }
             runCurrent()
             releaseCopy.complete(Unit)
             saveJob.join()
             removeJob.join()
 
             coVerify(exactly = 1) { localDataSource.attachLocalImagePath(1, imageStore.copiedPath!!) }
+            assertTrue(removalResult.await())
             assertEquals(emptyList<Int>(), imageStore.deleteCalls)
         }
 
