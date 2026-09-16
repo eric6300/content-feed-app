@@ -6,7 +6,7 @@ Back to [README](../README.md) · [Spec](SPEC.md) · [Use Cases](USE_CASES.md) �
 
 T0–T8 are all complete. The repository has the `:app`, `:core`, `:feed`, and `:designsystem` modules, centralized dependency pins, KSP/code-generation wiring, strict lint/ktlint checks, Koin application bootstrap, CI, the local persistence layer (Room entities/DAOs, `FreshnessGate`, the bundled service-card pool), remote data sources for articles and weather, repository orchestration, feed use cases, MVI presentation contracts/ViewModels, Navigation 3, offline save behavior, the Compose UI/design-system layer, and the T8 hardening pass (see T8's post-review note below for a tap-target fix and the debounced-click addition made after the initial hardening commit).
 
-The T1 baseline was verified with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The exact compatibility decisions are recorded in [`DECISIONS.md`](../DECISIONS.md).
+The T1 baseline was verified with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The exact compatibility pins are recorded in [`gradle/libs.versions.toml`](../gradle/libs.versions.toml).
 
 The implementation order is deliberately bottom-up: local/remote data and persistence first, orchestration next, MVI contracts after the data behavior is testable, and Compose UI last.
 
@@ -45,7 +45,7 @@ Every task below follows the same loop. A task is not ready to implement until i
 - Configure code generation, Android test dependencies, strict lint checks, and the GitHub Actions build/test workflow.
 - Add only the minimum module/application scaffolding needed to prove dependency resolution; do not begin feature code.
 
-**Compatibility baseline:** AGP `8.9.1`, Kotlin `2.2.10`, Gradle `8.13`, compileSdk/targetSdk `36`, minSdk `24`, Java/Kotlin target `11`, Compose BOM `2025.03.00`, Lifecycle `2.8.7`, Browser `1.8.0`, Room `2.7.2`, and the remaining pins in `gradle/libs.versions.toml`. These are compatibility pins for the committed baseline, not latest-overall releases.
+**Compatibility baseline:** AGP `8.9.1`, Kotlin `2.2.10`, Gradle `8.13`, compileSdk `36`, targetSdk `35`, minSdk `24`, Java/Kotlin target `11`, Compose BOM `2025.03.00`, Lifecycle `2.10.0`, Browser `1.8.0`, Room `2.7.2`, and the remaining pins in `gradle/libs.versions.toml`. These are compatibility pins for the committed baseline, not latest-overall releases; targetSdk was intentionally not raised with compileSdk, since the Android 16 behavior changes that come with `targetSdk 36` have not been verified on device.
 
 **Test/build gate:** passed with `./gradlew build`, `./gradlew ktlintCheck`, and `./gradlew testDebugUnitTest`. The version choices resolve together on the committed AGP/Kotlin/Gradle baseline.
 
@@ -60,14 +60,14 @@ Every task below follows the same loop. A task is not ready to implement until i
 **Work:**
 
 - Define the article, weather snapshot/forecast, service card, saved-article, and feed-placement contracts needed by the use cases.
-- Implement Room entities/DAOs for article content, saved state/local image reference/pending-undo bookkeeping, weather cache, and sticky feed placement. A placement stores a snapshot of its neighboring article's sort key (`published_at`, `id`), not a foreign key to that row, so it stays valid after the article is pruned. It also carries a `contentType` key (not a shared enum) and a `poolIndex` that cycles independently per content type, plus a global `assignmentSequence` tiebreaker — service cards are the only content type today, but this costs a future second insertable type no schema migration (see `DECISIONS.md`).
+- Implement Room entities/DAOs for article content, saved state/local image reference/pending-undo bookkeeping, weather cache, and sticky feed placement. A placement stores a snapshot of its neighboring article's sort key (`published_at`, `id`), not a foreign key to that row, so it stays valid after the article is pruned. It also carries a `contentType` key (not a shared enum) and a `poolIndex` that cycles independently per content type, plus a global `assignmentSequence` tiebreaker — service cards are the only content type today, but this costs a future second insertable type no schema migration.
 - Implement the parameterized `FreshnessGate` backed by DataStore and keep its timestamps separate from Room data and per-article `fetchedAt` bookkeeping.
 - Define the hybrid cache retention policy: keep fetched feed content in Room for cache-first startup, prune unsaved article rows older than 7 days after the initial open/return article refresh succeeds (not after a manual pull-to-refresh or reconnect refresh), and protect saved articles from that cleanup. Ordinary feed images remain in Coil's cache; only saved images are copied to app-internal storage.
 - Add the bundled service-card JSON and local image references without a runtime DummyJSON dependency; a malformed pool entry is skipped at parse time instead of failing the whole pool.
 
 **Mandatory unit tests:** DAO query ordering, saved filtering, and Saved-list most-recently-saved ordering; unsaved-article retention query excludes saved rows and retains recent rows; upsert/idempotence; article `published_at` fallback to `date unknown`; sticky placement anchor stability, including after its anchor article is pruned, and per-content-type pool-index cycling; FreshnessGate fresh/stale/bypass behavior; local service pool order/cycling and malformed-entry skipping.
 
-**Verification:** `:core`/`:feed` unit tests and ktlint green; Room DAO tests run as instrumented `androidTest` (17 tests) against the `Pixel_9` emulator via `./gradlew :core:connectedDebugAndroidTest` — not part of `testDebugUnitTest`/CI (see `DECISIONS.md`); full `./gradlew build` green across `:core`/`:feed`/`:app`.
+**Verification:** `:core`/`:feed` unit tests and ktlint green; Room DAO tests run as instrumented `androidTest` (17 tests) against the `Pixel_9` emulator via `./gradlew :core:connectedDebugAndroidTest` — not part of `testDebugUnitTest`/CI (see `README.md` → Known limitations); full `./gradlew build` green across `:core`/`:feed`/`:app`.
 
 **Commit:** `feat: add local feed persistence`.
 
@@ -86,7 +86,7 @@ Every task below follows the same loop. A task is not ready to implement until i
 - Take `offset`/`limit` as plain parameters; T4 owns the next-page cursor.
 - Enable core library desugaring in `:feed` and `:app` so `java.time` (`IsoTimestampParser`) is usable on minSdk 24, keeping ISO-8601 parsing a pure, separately-testable technical concern from the epoch-sentinel business rule (which lives in `ArticleMapper`).
 
-**Not in this task:** the weather unrecognized-code icon/label fallback (`USE_CASES.md` → Per-source data handling → Weather) is a rendering concern, not a parsing one — it is covered by T6's WMO-code-to-`WeatherCondition` mapping below. The empty service-card title fallback was cut outright (see `DECISIONS.md`, "Trimmed defensive per-field scenarios") and has no implementation here.
+**Not in this task:** the weather unrecognized-code icon/label fallback (`USE_CASES.md` → Per-source data handling → Weather) is a rendering concern, not a parsing one — it is covered by T6's WMO-code-to-`WeatherCondition` mapping below. The empty service-card title fallback was cut outright — the pool is a local, self-authored JSON file, so a missing title is a malformed-load case handled by skipping the entry, not a per-field UI fallback — and has no implementation here.
 
 **Mandatory unit tests:** DTO parsing against captured real responses from both sources; article mapping with missing image, missing summary, and missing/empty authors; `date unknown` for the epoch sentinel `1970-01-01T00:00:00Z`; ISO-8601 parsing of `Z`, fractional-second, and explicit-offset timestamps, and null for unparseable input; successful empty page; end-of-pagination from a null `next`; weather current/daily mapping including a raw unrecognized WMO code passing through unmodified; source failure mapping (HTTP error code, IO exception, unknown throwable, no-body success) for both sources; Retrofit call-adapter/converter wiring validated eagerly for both API interfaces.
 
@@ -104,7 +104,7 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 - Read cached feed data immediately from Room and run freshness checks/refetches independently.
 - Implement weather/article TTLs, manual refresh bypass, reconnect refresh, and source-isolated failure behavior.
-- Run the unsaved-article retention cleanup only after the initial open/return freshness refresh completes successfully — never after a manual pull-to-refresh or a reconnect refresh, since either could otherwise prune an article the user is currently scrolled to (see `DECISIONS.md`). Do not add background cleanup or an arbitrary fixed row cap in the first release.
+- Run the unsaved-article retention cleanup only after the initial open/return freshness refresh completes successfully — never after a manual pull-to-refresh or a reconnect refresh, since either could otherwise prune an article the user is currently scrolled to (see `README.md` → Freshness policy → Retention). Do not add background cleanup or an arbitrary fixed row cap in the first release.
 - Maintain the independent next-page offset cursor; freshness top-check always requests offset zero and compares stable article ids rather than deriving offsets from Room row count.
 - Compose weather once at the top, article order by `published_at DESC, id ASC`, and sticky service-card inserts without recalculating existing placements — robust to a placement's anchor article having since been pruned, and with prepended articles counted in their own independent window that never renumbers already-placed cards.
 - Expose loading/empty/error/end-of-pagination signals as domain-level state inputs.
@@ -125,7 +125,7 @@ Every task below follows the same loop. A task is not ready to implement until i
 
 **Work:**
 
-- Implement save/unsave from feed, detail, and Saved contexts with one shared path; feed/detail toggles are immediate (tapping again re-saves, no undo), while a removal from the Saved list goes through the undo window below (see `DECISIONS.md`).
+- Implement save/unsave from feed, detail, and Saved contexts with one shared path; feed/detail toggles are immediate (tapping again re-saves, no undo — a toggle doesn't need a second undo path layered on itself), while a removal from the Saved list goes through the undo window below.
 - Persist saved article content and local image references; reuse an already-loaded image offline and tolerate an unavailable image cache.
 - Implement the brief undo window, scoped to Saved-list removals, and final local data/image deletion after expiry — including finalizing on reopen if the window lapsed while the app was closed, and tracking multiple pending undos independently.
 

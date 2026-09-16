@@ -60,7 +60,7 @@ Scenario: A service card's position survives its neighboring article being prune
 
 ## Feature: Feed freshness
 
-Applies to the two live network sources (weather, articles), each with its own staleness threshold reflecting how often its real-world data actually changes. Exact numbers below; the reasoning for picking them goes in `DECISIONS.md`. Service cards are excluded — they're a local bundled mock, not a live network source, so there's nothing to refetch or go stale (see Feature: Feed browsing for how the fixed local pool is used).
+Applies to the two live network sources (weather, articles), each with its own staleness threshold reflecting how often its real-world data actually changes. Exact numbers below; the reasoning for picking them, and for the freshness policy as a whole, is in `README.md` → Freshness policy. Service cards are excluded — they're a local bundled mock, not a live network source, so there's nothing to refetch or go stale (see Feature: Feed browsing for how the fixed local pool is used).
 
 ```gherkin
 Scenario Outline: Cached content is refetched once it passes its freshness window
@@ -156,9 +156,9 @@ Scenario: An article's detail view shows a placeholder if its image fails to loa
   Then a placeholder image is shown instead of a broken image or blank space, without blocking the rest of the detail content
 ```
 
-Service cards have no equivalent scenario: their images are bundled as local app assets (see `DECISIONS.md`), not loaded over the network, so there is no loading or failure state to handle at the detail-view level.
+Service cards have no equivalent scenario: their images are bundled as local app assets, not loaded over the network, so there is no loading or failure state to handle at the detail-view level.
 
-Weather has no separate detail view: its current conditions and forecast are shown directly in its feed card, and tapping it does nothing further (see `DECISIONS.md`).
+Weather has no separate detail view: its current conditions and forecast are shown directly in its feed card, and tapping it does nothing further.
 
 ## Feature: Save for later
 

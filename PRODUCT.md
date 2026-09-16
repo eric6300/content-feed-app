@@ -36,7 +36,7 @@ Inferred from the product brief: a trustworthy multi-source reading entry point.
 - The article stream is paginated and heterogeneous; weather is a single top section; service-card placement is sticky once assigned.
 - Only articles are saveable. Saved article data is persisted locally and supports an undo window when unsaved.
 - Loading, empty, source-scoped error, offline, back-online, pagination-end, and pagination-error states are explicit requirements.
-- The freshness policy, local database as the source of truth, and source-specific data handling are defined in `docs/USE_CASES.md` and `DECISIONS.md`.
+- The freshness policy is defined in `README.md`; local database as the source of truth is in `DECISIONS.md`; source-specific data handling is in `docs/USE_CASES.md`.
 - The app must respect Android system Back, window insets, 48 dp minimum touch targets, Material 3 semantics, and user font-scale settings.
 
 ## Brand Commitments
@@ -49,7 +49,7 @@ Inferred from the product brief: a trustworthy multi-source reading entry point.
 
 - Product requirements and behavior scenarios are in `docs/SPEC.md` and `docs/USE_CASES.md`.
 - Existing architecture and source decisions are in `docs/SPEC.md` and `DECISIONS.md`.
-- The app currently contains only the Android Compose scaffold and example tests; no production UI or established visual system exists yet.
+- The app's production UI and the Material 3 token contract described below are implemented; see `README.md` for what's currently built.
 
 ## Product Principles
 
@@ -61,4 +61,4 @@ Inferred from the product brief: a trustworthy multi-source reading entry point.
 
 ## Accessibility & Inclusion
 
-The app targets Android phones first and must remain usable with system font scaling, screen-reader semantics, adequate contrast, and 48 dp touch targets. Light and dark semantic roles remain aligned in the token contract, while full dark-theme implementation is deferred until after the core release. Detailed accessibility verification is a required part of the UI completion pass even though UI tests are secondary to unit tests for this project.
+The app targets Android phones first and must remain usable with system font scaling, screen-reader semantics, adequate contrast, and 48 dp touch targets. The dark `ColorScheme` is implemented, but light/dark semantic-role contrast has not yet been audited on device (see `README.md` → Known limitations). Detailed accessibility verification is a required part of the UI completion pass even though UI tests are secondary to unit tests for this project.

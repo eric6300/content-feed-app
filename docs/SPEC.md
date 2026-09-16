@@ -12,8 +12,8 @@ A small content-feed app: a scrollable, heterogeneous feed (articles, weather, s
 
 **In scope** (see [Use Cases](USE_CASES.md) for full behavior):
 - A heterogeneous feed: a one-time weather hero (live), above a single paginated, infinite-scroll stream mixing articles (live) and service cards (local mock)
-- Item detail views for articles and service cards (weather's forecast is shown inline in its feed card, not a separate detail screen — see `DECISIONS.md`)
-- Save/unsave for articles, with offline-readable saved articles and an undo option (weather and service cards are not saveable — see `DECISIONS.md`)
+- Item detail views for articles and service cards (weather's forecast is shown inline in its feed card, not a separate detail screen — it's continuously-updating data with no fixed "version" to drill into)
+- Save/unsave for articles, with offline-readable saved articles and an undo option (weather and service cards are not saveable, for the same reason plus — for service cards — the target action already being the card's one interaction)
 - A freshness policy with per-source staleness thresholds for the two live sources, an app-wide offline/back-online banner, and explicit loading/empty/error states throughout
 
 **Out of scope** (not attempted, or deferred — see `README.md` for the up-to-date list once implementation starts):
@@ -26,7 +26,7 @@ A small content-feed app: a scrollable, heterogeneous feed (articles, weather, s
 - **Modules**: `:app` (composition root — Koin wiring, `MainActivity`, and the Navigation 3 shell), `:core` (network, Room, DataStore, and shared Koin modules), `:feed` (repositories/data sources, MVI state/view models, and feed/detail/saved Compose screens), and `:designsystem` (tokenized Material 3 theme and generic UI components).
 - **Stack**: Kotlin + Jetpack Compose, MVI, and Navigation 3; Koin for DI; OkHttp + Moshi (KSP codegen) + Retrofit, wrapped in sandwich for API responses; Room + DataStore Preferences for persistence and freshness timestamps; Coil for images; Custom Tabs for external links.
 - **CI**: GitHub Actions runs `build`, `ktlintCheck`, and `testDebugUnitTest` on push to any branch and on pull requests.
-- **Bootstrap status**: T1 is complete and T6 upgraded the baseline for Navigation 3. The project uses AGP `8.9.1`, Kotlin `2.2.10`, Gradle `8.13`, compileSdk/targetSdk `36`, and minSdk `24`; all external versions are centralized in `gradle/libs.versions.toml` and selected as compatible with the committed build.
+- **Bootstrap status**: T1 is complete and T6 upgraded the baseline for Navigation 3. The project uses AGP `8.9.1`, Kotlin `2.2.10`, Gradle `8.13`, compileSdk `36`, targetSdk `35`, and minSdk `24`. `targetSdk` was intentionally not raised with `compileSdk`: the Android 16 behavior changes that come with `targetSdk 36` have not been verified on device. All external versions are centralized in `gradle/libs.versions.toml` and selected as compatible with the committed build.
 - Naming/structure conventions and lint rules are in [Coding Style](CODING_STYLE.md); rationale for each architectural choice is recorded in `DECISIONS.md` as it's decided.
 - The original visual direction and token contract are in [Design Direction](../DESIGN.md) and [Design Tokens](DESIGN_TOKENS.md); the task/test/commit sequence is in [Implementation Plan](IMPLEMENTATION_PLAN.md).
 
@@ -53,6 +53,6 @@ Maps each core product requirement to where it is specified in [Use Cases](USE_C
 |---|---|
 | Paginated feed with a detail screen | Feature: Feed browsing; Feature: Item detail |
 | Save/unsave, readable offline after first load | Feature: Save for later; Feature: Unsave; Feature: Offline access to saved items |
-| Heterogeneous feed, ≥2 visually distinct card types, justified | Feature: Feed browsing ("fixed structure" scenario); Feature: Per-source data handling; rationale in `DECISIONS.md` (feed ordering rule, movies→service cards rationale, live API vs. mock split) |
+| Heterogeneous feed, ≥2 visually distinct card types, justified | Feature: Feed browsing ("fixed structure" scenario); Feature: Per-source data handling; source-selection rationale in `DECISIONS.md`; ordering rule in `README.md` → Freshness policy |
 | Freshness policy (what "fresh" means, per-source cadence, single source of truth, offline banner, data-change behavior, ordering) | Feature: Feed freshness; Feature: Connectivity |
 | All UI states handled explicitly: loading, empty, error, offline | Feature: Loading, empty, and error states; Feature: Item detail (image loading/error scenarios); Feature: Connectivity (offline/back-online banners, external-link actions offline) |
