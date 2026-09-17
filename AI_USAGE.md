@@ -30,3 +30,10 @@ It also argued against me twice and was right both times: when I suggested mocki
 ## 2026-09-16 — Clarifying saved-image retention wording
 
 The earlier entry's statement that storage equals the saved count was too broad. A cache miss is a supported save path, so the accurate invariant is that each successfully captured saved image is tied to its saved row and is deleted when that saved image is finalized.
+
+## 2026-09-17 — Compose screen extraction and previews
+
+**Tool/flow:** Codex, implementing a user-directed refactor of the existing Compose feature screens.
+**Accepted:** Route/screen separation, focused feed-content composables, and deterministic light previews using fixed models, no-op callbacks, and an explicitly supplied image loader.
+**Rejected/rewrote:** The initial visual-polish direction was set aside at the user's request; this change preserves existing UI behavior and styling. The first draft also passed click callbacks positionally to a modifier extension; compilation showed that argument was `enabled`, so the calls were corrected to use the named `onClick` parameter.
+**Why:** The user's priority was file decomposition and preview coverage, and the build/lint gate verified the API correction without broadening the change into a visual redesign.
